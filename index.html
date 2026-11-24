@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shawn Ramdeo · Electrical Engineer</title>
+<meta name="description" content="Electrical design, power studies and interactive engineering models for projects in Guyana, by Shawn Ramdeo, Electrical Engineer.">
+<meta name="author" content="Shawn Ramdeo">
+<link rel="canonical" href="https://strat6-blip.github.io/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shawn Ramdeo, Electrical Engineer">
+<meta property="og:title" content="Shawn Ramdeo · Electrical Engineer">
+<meta property="og:description" content="Electrical design, power studies and interactive engineering models for projects in Guyana.">
+<meta property="og:url" content="https://strat6-blip.github.io/">
+<meta property="og:image" content="https://strat6-blip.github.io/img/gov-towers-twin.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef0ec; --sheet:#fbfcfa; --ink:#15191b; --muted:#566068; --line:#d3d8d4; --line2:#e5e9e6;
+  --accent:#1c5cab; --accent-soft:#e1ebf7;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body)}
+a{color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:28px max(18px,env(safe-area-inset-left,0px)) 56px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance}
+.eyebrow{font:500 11.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+p{margin:0}
+
+/* title block */
+.tb{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 32px;align-items:end;background:var(--sheet);border:1.5px solid var(--ink);padding:26px 28px}
+.tb h1{font-size:clamp(34px,5.4vw,56px);line-height:1;margin-top:8px;letter-spacing:.005em}
+.tb .role{font:500 clamp(17px,2.2vw,21px) var(--f-display);color:var(--muted);margin-top:6px}
+.tb .lede{margin-top:14px;max-width:62ch;color:var(--muted)}
+.tb dl{display:grid;grid-template-columns:auto auto;gap:3px 16px;margin:0;font-size:13px;border-left:1px solid var(--line);padding-left:20px}
+.tb dt{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.tb dd{margin:0;font-weight:500}
+@media (max-width:760px){.tb{grid-template-columns:1fr;padding:20px}.tb dl{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:12px}}
+
+.section{margin-top:34px}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px 16px;flex-wrap:wrap;border-bottom:1px solid var(--ink);padding-bottom:8px;margin-bottom:16px}
+.section-head h2{font-size:24px}
+.section-head span{font-size:13px;color:var(--muted)}
+
+/* featured */
+.feature{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);background:var(--sheet);border:1px solid var(--line)}
+.feature .shot{display:block;border-right:1px solid var(--line);overflow:hidden;background:#1e2224}
+.feature .shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left;transition:transform .4s ease}
+.feature .shot:hover img{transform:scale(1.015)}
+.feature .txt{padding:22px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.feature h3{font-size:28px;line-height:1.1}
+.feature p{color:var(--muted)}
+.tag{display:inline-block;font:500 11px var(--f-mono);letter-spacing:.06em;border:1px solid currentColor;padding:1px 7px;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.btn{display:inline-flex;align-items:center;gap:8px;font:600 14px var(--f-body);text-decoration:none;background:var(--ink);color:var(--sheet);padding:9px 14px;border:1px solid var(--ink);align-self:flex-start}
+.btn:hover{background:var(--accent);border-color:var(--accent)}
+.btn:focus-visible,.card:focus-visible,.dl a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dl{list-style:none;margin:4px 0 0;padding:0;border-top:1px solid var(--line2)}
+.dl li{border-bottom:1px solid var(--line2)}
+.dl a{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 2px;text-decoration:none}
+.dl a:hover{background:var(--accent-soft)}
+.dl .ft{font:600 10.5px var(--f-mono);letter-spacing:.06em;color:var(--accent);border:1px solid var(--accent);text-align:center;padding:2px 0}
+.dl .nm{font-size:14px;font-weight:500}
+.dl .sz{font:12px var(--f-mono);color:var(--muted)}
+@media (max-width:880px){.feature{grid-template-columns:1fr}.feature .shot{border-right:0;border-bottom:1px solid var(--line)}}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+@media (max-width:980px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
+.card{display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--line);text-decoration:none;min-width:0}
+.card:hover{border-color:var(--ink)}
+.card .shot{aspect-ratio:1200/630;overflow:hidden;border-bottom:1px solid var(--line);background:var(--line2)}
+.card .shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left;transition:transform .4s ease}
+.card:hover .shot img{transform:scale(1.02)}
+.card .txt{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h3{font-size:21px;line-height:1.15}
+.card p{color:var(--muted);font-size:14px}
+.card .go{margin-top:auto;padding-top:4px;font:600 13px var(--f-body);color:var(--accent)}
+
+video{display:block;width:100%;background:#000;border:1px solid var(--line)}
+footer{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="tb">
+  <div>
+    <div class="eyebrow">Portfolio · Georgetown, Guyana</div>
+    <h1>Shawn Ramdeo</h1>
+    <div class="role">Electrical Engineer</div>
+    <p class="lede">Electrical design, power system studies and inspection for public and private buildings in Guyana. The models below run in your browser: rotate the buildings, play through the day, and change the inputs to see how the design responds.</p>
+  </div>
+  <dl>
+    <dt>Codes</dt><dd>NEC 2017 · NFPA 70, 72, 101 · IEEE 519</dd>
+    <dt>Utility</dt><dd>GPL interconnection and tariffs</dd>
+    <dt>Work</dt><dd>Design · Load studies · BOQs · Inspection</dd>
+  </dl>
+</header>
+
+<section class="section" aria-labelledby="h-feat">
+  <div class="section-head"><h2 id="h-feat">Featured: Gov Towers</h2><span>Government office complex, Region 4</span></div>
+  <div class="feature">
+    <a class="shot" href="projects/gov-towers-twin/" aria-label="Open the Gov Towers Digital Twin"><img src="img/gov-towers-twin.png" alt="Gov Towers Digital Twin: 3D view of four office towers with live supply readings" width="1200" height="630"></a>
+    <div class="txt">
+      <div class="tags"><span class="tag">DIGITAL TWIN</span><span class="tag">SIMULATED DATA</span></div>
+      <h3>Gov Towers Digital Twin</h3>
+      <p>Four 12-storey towers on two 2,000 kVA services with standby generators. Run a design day, trip the GPL supply, fail a generator set, cap the utility demand, and watch each transformer, bus and generator respond. The load model behind it is set out in the two reports below.</p>
+      <a class="btn" href="projects/gov-towers-twin/">Open the twin <span aria-hidden="true">→</span></a>
+      <ul class="dl">
+        <li><a href="files/gov-towers-simulated-load-assessment-2026-11-01.pdf"><span class="ft">PDF</span><span class="nm">Simulated Load Assessment Report</span><span class="sz">1.6 MB</span></a></li>
+        <li><a href="files/gov-towers-alternative-power-and-harmonic-filter-2026-11-09.pdf"><span class="ft">PDF</span><span class="nm">Alternative Power and Harmonic Filter Assessment</span><span class="sz">0.6 MB</span></a></li>
+        <li><a href="#walkthrough"><span class="ft">MP4</span><span class="nm">Video walkthrough of the twin</span><span class="sz">22 MB</span></a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="h-models">
+  <div class="section-head"><h2 id="h-models">Design models and tools</h2><span>Interactive, open in any modern browser</span></div>
+  <div class="grid">
+    <a class="card" href="projects/moe-model-school/">
+      <div class="shot"><img src="img/moe-model-school.png" alt="Model School Electrical Design title sheet" width="1200" height="630" loading="lazy"></div>
+      <div class="txt"><div class="tags"><span class="tag">EDUCATION</span><span class="tag">REFERENCE DESIGN</span></div>
+        <h3>Model School Electrical Design</h3>
+        <p>Complete reference designs for a 480-pupil primary and an 800-pupil secondary school: 3D blocks, layouts, lighting, load calculation, panel schedules and a priced BOQ.</p>
+        <span class="go">Open design →</span></div>
+    </a>
+    <a class="card" href="projects/model-homes/">
+      <div class="shot"><img src="img/model-homes.png" alt="Model Homes standard matrix by bedrooms and tier" width="1200" height="630" loading="lazy"></div>
+      <div class="txt"><div class="tags"><span class="tag">RESIDENTIAL</span><span class="tag">20 DESIGNS</span></div>
+        <h3>Model Homes Electrical Standard</h3>
+        <p>Twenty reference homes, one to six bedrooms in three specification tiers, each with an NEC 220 load calculation, panel schedule, single-line diagram and priced BOQ.</p>
+        <span class="go">Open designs →</span></div>
+    </a>
+    <a class="card" href="projects/solar-pv-sizer/">
+      <div class="shot"><img src="img/solar-pv-sizer.png" alt="Solar PV and Battery Sizer with system summary and monthly energy chart" width="1200" height="630" loading="lazy"></div>
+      <div class="txt"><div class="tags"><span class="tag">RENEWABLES</span><span class="tag">CALCULATOR</span></div>
+        <h3>Solar PV and Battery Sizer</h3>
+        <p>Sizes the array, strings, inverter and battery for a Guyanese site, runs a monthly energy balance and works out payback against the GPL tariff.</p>
+        <span class="go">Open tool →</span></div>
+    </a>
+  </div>
+</section>
+
+<section class="section" id="walkthrough" aria-labelledby="h-video">
+  <div class="section-head"><h2 id="h-video">Walkthrough: Gov Towers Digital Twin</h2><span>Video, about 22 MB</span></div>
+  <video controls preload="none" poster="img/gov-towers-twin.png">
+    <source src="files/gov-towers-twin-walkthrough.mp4" type="video/mp4">
+    <a href="files/gov-towers-twin-walkthrough.mp4">Download the walkthrough video</a>
+  </video>
+</section>
+
+<footer>
+  <span>© 2026 Shawn Ramdeo</span>
+  <span>Figures in the Gov Towers material are from a simulated load model, not metered data.</span>
+</footer>
+
+</div>
+</body>
+</html>

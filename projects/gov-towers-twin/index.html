@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gov Towers Digital Twin · Shawn Ramdeo</title>
+<meta name="description" content="Interactive simulation of a four-tower government office complex: two 2,000 kVA services, standby generators, GPL outages, peak shaving and harmonic filtering, run over a design day.">
+<meta name="author" content="Shawn Ramdeo">
+<link rel="canonical" href="https://strat6-blip.github.io/projects/gov-towers-twin/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shawn Ramdeo, Electrical Engineer">
+<meta property="og:title" content="Gov Towers Digital Twin · Shawn Ramdeo">
+<meta property="og:description" content="Interactive simulation of a four-tower government office complex: two 2,000 kVA services, standby generators, GPL outages, peak shaving and harmonic filtering, run over a design day.">
+<meta property="og:url" content="https://strat6-blip.github.io/projects/gov-towers-twin/">
+<meta property="og:image" content="https://strat6-blip.github.io/img/gov-towers-twin.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: a control-room HMI after ISA-101. Grey equipment surfaces stay quiet, so colour only ever means
+   a source of power or an abnormal state. Conditions on the left, the building in the middle, its state on the right. */
+:root{
+  --bg:#dfe1dc; --panel:#f1f2ee; --panel2:#e8e9e4; --line:#c6c8c1; --ink:#15181a; --ink2:#4a4e4f; --mute:#6f7371;
+  --accent:#1c5cab; --gpl:#2a78d6; --t34:#1baf7a; --gen:#eb6834; --bat:#eda100; --s5:#e87ba4;
+  --crit:#d03b3b; --warn:#fab219; --good:#0ca30c; --critInk:#a32424; --warnInk:#7a5600; --grid:#d5d6cf; --axis:#a9aba3;
+  --disp:"Barlow Condensed","Arial Narrow",sans-serif; --body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141719; --panel:#1e2224; --panel2:#262b2d; --line:#363c3e; --ink:#eceeea; --ink2:#bcc0ba; --mute:#8d918c;
+  --accent:#6da7ec; --gpl:#3987e5; --t34:#199e70; --gen:#d95926; --bat:#c98500; --s5:#d55181;
+  --critInk:#f08a8a; --warnInk:#fab219; --grid:#2c3133; --axis:#4b5153; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141719; --panel:#1e2224; --panel2:#262b2d; --line:#363c3e; --ink:#eceeea; --ink2:#bcc0ba; --mute:#8d918c;
+  --accent:#6da7ec; --gpl:#3987e5; --t34:#199e70; --gen:#d95926; --bat:#c98500; --s5:#d55181;
+  --critInk:#f08a8a; --warnInk:#fab219; --grid:#2c3133; --axis:#4b5153; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--body);padding-block:12px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--disp);font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:30px;line-height:1.05;letter-spacing:.01em}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink2)}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--mute);font-weight:500}
+.mono,.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px}
+header p{margin:0;color:var(--ink2);max-width:80ch;min-width:0}
+.simtag{font:500 12px var(--mono);letter-spacing:.06em;padding:2px 8px;border:1.5px solid var(--ink2);color:var(--ink)}
+.app{display:grid;gap:10px;grid-template-columns:292px minmax(0,1fr) 336px;grid-template-areas:"left mid rightc" "notes notes notes";align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);padding:12px;min-width:0}
+#left{grid-area:left;display:flex;flex-direction:column;gap:14px;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow-y:auto}
+#midcol{grid-area:mid;display:flex;flex-direction:column;gap:10px;min-width:0}#stagewrap{padding:0}
+#rightcol{grid-area:rightc;display:flex;flex-direction:column;gap:12px;min-width:0}#right{display:flex;flex-direction:column;gap:12px}#notes{grid-area:notes}
+@media (max-width:1180px){.app{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"mid mid" "rightc left" "notes notes"}#left{position:static;max-height:none;overflow:visible}}
+@media (max-width:760px){.app{grid-template-columns:minmax(0,1fr);grid-template-areas:"mid" "rightc" "left" "notes"}}
+/* controls */
+.grp{display:flex;flex-direction:column;gap:9px}.grp+.grp{border-top:1px solid var(--line);padding-top:12px}
+label.f{display:grid;grid-template-columns:1fr auto;gap:1px 8px;font-size:13px;color:var(--ink2)}
+label.f output{font:500 12.5px var(--mono);color:var(--ink)}label.f input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:2px 0 0;height:18px}
+select{width:100%;font:13px var(--body);padding:6px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:0}
+label.c{display:flex;gap:7px;align-items:flex-start;font-size:13px;color:var(--ink2)}label.c input{accent-color:var(--accent);margin-top:3px}
+.sublab{font-size:13px;color:var(--ink2);display:block;margin-bottom:2px}
+button{font:500 13px var(--body);background:var(--panel2);color:var(--ink);border:1px solid var(--line);padding:5px 10px;cursor:pointer;border-radius:0}
+button:hover{border-color:var(--ink2)}button[aria-pressed=true]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* stage */
+#stage{position:relative;height:clamp(380px,60vh,660px);background:#26333c;overflow:hidden;touch-action:pan-y;cursor:grab}
+#stage canvas{display:block;width:100%;height:100%}
+.tag3d{position:absolute;transform:translate(-50%,-100%);font:600 15px var(--disp);letter-spacing:.06em;color:#fff;background:rgba(10,16,20,.72);padding:0 6px;pointer-events:none;white-space:nowrap}
+.tag3d.s{font-weight:500;font-size:12px;letter-spacing:.04em}
+.hud{position:absolute;left:10px;top:10px;color:#fff;background:rgba(10,16,20,.72);padding:6px 10px;pointer-events:none}
+.hud b{font:500 30px/1 var(--mono);display:block}.hud span{font:12px var(--mono);opacity:.9}
+#maplegend{position:absolute;right:10px;top:10px;color:#fff;background:rgba(10,16,20,.72);padding:6px 8px;font-size:12px;display:flex;flex-wrap:wrap;gap:4px 10px;max-width:60%;pointer-events:none}
+#maplegend i{display:inline-block;width:10px;height:10px;margin-right:4px}
+#nowebgl{position:absolute;inset:0;display:grid;place-items:center;color:#fff;text-align:center;padding:24px}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;gap:4px}.zoom button{background:rgba(10,16,20,.72);color:#fff;border-color:rgba(255,255,255,.3);width:32px;padding:4px}
+.transport{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:8px 10px;border-top:1px solid var(--line)}
+#t{flex:1 1 220px;min-width:0;accent-color:var(--accent)}
+.seg{display:flex;flex-wrap:wrap;gap:0}.seg button+button{border-left:0}
+#play{min-width:72px;font-weight:600}
+/* status */
+.hero .big{font:500 34px/1.05 var(--mono)}.hero .of{color:var(--ink2);font-size:13px}
+.meter{height:10px;background:var(--panel2);position:relative;margin-top:6px;border:1px solid var(--line)}
+.meter i{position:absolute;left:0;top:0;bottom:0;background:var(--ink2)}.meter.over i{background:var(--crit)}
+.meter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.chips{display:flex;gap:6px;align-items:center;font:600 12px var(--mono)}
+.pairs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pc{border:1px solid var(--line);padding:8px;background:var(--panel2);min-width:0}.pc h3{color:var(--ink);font-weight:600;font-size:15px;letter-spacing:.05em}
+.src{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink2);margin:2px 0 5px}.src i{width:10px;height:10px;display:inline-block}
+dl{display:grid;grid-template-columns:1fr auto;gap:0 6px;margin:0;font-size:12.5px}dt{color:var(--ink2)}dd{margin:0;font:500 12.5px var(--mono);text-align:right}
+#alarms{display:flex;flex-direction:column;gap:5px;max-height:216px;overflow-y:auto}
+.al{display:grid;grid-template-columns:auto 1fr;gap:7px;font-size:12.5px;padding:4px 6px;line-height:1.35}
+.al em{font:600 11px var(--mono);font-style:normal;padding:0 4px;align-self:start;margin-top:1px}
+.al.crit{background:color-mix(in srgb,var(--crit) 12%,transparent)}.al.crit em{background:var(--crit);color:#fff}
+.al.warn{background:color-mix(in srgb,var(--warn) 16%,transparent)}.al.warn em{background:var(--warn);color:#0b0b0b}
+.al.info{background:var(--panel2)}.al.info em{background:var(--ink2);color:var(--panel)}
+.al.ok{background:var(--panel2)}.al.ok em{background:var(--good);color:#fff}
+/* chart */
+.charthead{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;margin-bottom:6px}
+#chart{position:relative;width:100%;height:220px;touch-action:pan-y}
+#chart svg{display:block;width:100%;height:100%;cursor:crosshair}
+#tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--ink2);padding:5px 8px;font-size:12px;min-width:150px;z-index:3}
+#tip div{display:flex;justify-content:space-between;gap:12px}#tip .n{font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--ink2);margin-top:4px}.legend i{display:inline-block;width:10px;height:10px;margin-right:4px}
+.legend i.dash{height:0;border-top:2px dashed var(--ink);width:14px;vertical-align:middle}
+/* sld */
+.scroll{overflow-x:auto}#sld{min-width:640px;width:100%;display:block}
+#sld text{font:11px var(--mono);fill:var(--ink2)}#sld text.h{font:600 14px var(--disp);letter-spacing:.05em;fill:var(--ink)}#sld text.v{fill:var(--ink);font-weight:500}
+#sld .w{stroke:var(--axis);stroke-width:2.2;fill:none}#sld .w.gpl{stroke:var(--gpl)}#sld .w.gen{stroke:var(--gen)}#sld .w.fut{stroke-dasharray:4 4}
+#sld .sym{fill:var(--panel);stroke:var(--axis);stroke-width:1.8}#sld .sym.gpl{stroke:var(--gpl)}#sld .sym.gen{stroke:var(--gen)}#sld .brk{stroke:var(--axis);fill:var(--panel);stroke-width:1.8}#sld .brk.closed{fill:var(--ink);stroke:var(--ink)}
+#sld .fail{stroke:var(--crit)!important}
+/* floors */
+.fmat{display:grid;grid-template-columns:30px repeat(4,1fr);gap:2px;font:11px var(--mono);margin-top:6px}
+.fmat span{color:var(--ink2);text-align:center;align-self:center}
+.fmat button{height:17px;padding:0;border:1px solid transparent}.fmat button.sel{outline:2px solid var(--ink);outline-offset:0}
+#floordetail{margin-top:10px}
+#floordetail button{margin-top:8px;width:100%}
+/* notes */
+#notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+#notes p,#notes li{color:var(--ink2);font-size:13px}#notes ul{padding-left:18px;margin:6px 0}#notes li{margin-bottom:3px}#notes p{margin:6px 0;max-width:70ch}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:6px}th{font-weight:500;color:var(--mute);text-align:right;padding:2px 6px;border-bottom:1px solid var(--axis)}th:first-child,td:first-child{text-align:left}td{padding:2px 6px;border-bottom:1px solid var(--grid);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}td:first-child{font-family:var(--body)}
+details summary{cursor:pointer;color:var(--ink2);font-size:13px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<header>
+  <h1>Gov Towers Twin</h1><span class="simtag">SIMULATED · NO LIVE METER DATA</span>
+  <p>Government Office Complex, Region 4. Change the conditions on the left, then scrub or play the day to see how each tower, its transformer and its generators respond.</p>
+</header>
+
+<div class="app">
+  <section class="panel" id="left" aria-label="Conditions"></section>
+
+  <div id="midcol">
+  <section class="panel" id="stagewrap" aria-label="3D model">
+    <div id="stage" tabindex="0" aria-label="3D model of the four towers. Drag to rotate, select a floor to inspect it.">
+      <div class="hud"><b id="hudt">13:15</b><span id="hudw"></span></div>
+      <div id="maplegend"></div>
+      <div class="zoom"><button id="zi" aria-label="Zoom in">+</button><button id="zo" aria-label="Zoom out">−</button></div>
+    </div>
+    <div class="transport">
+      <button id="play" aria-pressed="false">▶ Play</button>
+      <input id="t" type="range" min="0" max="287" step="1" value="159" aria-label="Time of day">
+      <div class="seg" role="group" aria-label="Colour floors by" id="maps"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="chartwrap" aria-label="Day profile">
+    <div class="charthead"><h2 id="chtitle">Whole complex over the day</h2><div class="seg" id="chtabs" role="group" aria-label="Chart view"></div></div>
+    <div id="chart"></div><div class="legend" id="chleg"></div>
+    <details style="margin-top:6px"><summary>Hourly table</summary><div class="tw" id="hourly"></div></details>
+  </section>
+
+  <section class="panel" id="sldwrap" aria-label="Single line">
+    <div class="charthead"><h2>Live single line</h2><span style="font-size:12px;color:var(--mute)">Simplified from PCM-ELE-90. Blue is GPL, orange is generator, grey is dead.</span></div>
+    <div class="scroll"><svg id="sld" viewBox="0 0 680 350" role="img" aria-label="Single line diagram of both tower pairs with live values"></svg></div>
+  </section>
+
+  </div>
+
+  <div id="rightcol">
+  <section id="right" aria-label="Live state"></section>
+  <section class="panel" id="floorswrap" aria-label="Floors">
+    <h2>Floors</h2><div class="fmat" id="fmat"></div><div id="floordetail"></div>
+  </section>
+  </div>
+
+  <section class="panel" id="notes" aria-label="Basis of the model">
+    <div><h2>Does it match the reports?</h2>
+      <p>Each design-day case below is recalculated in your browser and compared with <span class="mono">future_scenarios.csv</span>, from the Python model.</p>
+      <div class="tw" id="check"></div>
+      <p>The reports quote a higher complex peak (3,048 kW) because they use the 30-day run, which adds day-to-day attendance and random noise. This twin runs the noise-free design day, so it reads about 3,002 kW.</p>
+    </div>
+    <div><h2>Where the numbers come from</h2>
+      <ul>
+        <li><b>From CGI drawings:</b> 2,000 kVA 13.8 kV/480Y/277 V dry-type transformer per pair at 8% Z, 3,040 A main breaker, 3,590 A bus, two 1,000 kW/1,250 kVA sets per pair, transfer within 10 s, 200 kVA UPS, AHF labelled 600 kVAR/950 A on a 400 A breaker.</li>
+        <li><b>Assumed in the load model:</b> occupancy, desk density, plug loads, envelope, HVAC efficiency and floor area (scaled from the plans, ±15%). Every kW here rests on these.</li>
+        <li><b>Assumed in the supply study:</b> outage behaviour, fuel curve, G$300/L diesel, Tariff GD rates, battery size, 60% first-step generator acceptance.</li>
+      </ul>
+    </div>
+    <div><h2>New in the twin, not in the reports</h2>
+      <ul>
+        <li><b>Indoor temperature</b> is a simple one-zone estimate (0.05 kWh/m²·K of thermal mass). Use it to compare cases, not to predict comfort.</li>
+        <li><b>Cooling by wing</b> splits the model's solar gain using the sun's position. The tower total is unchanged.</li>
+        <li><b>Site layout is estimated from one architectural render</b> (south-west view), to about ±20 m. It is not labelled, so the near block being T1–T2 is an assumption, as are the far block's rear-facing position and the 15° rotation. Roads, parking and trees are indicative, and the substation and generator positions are not shown on any sheet received. Layout only affects the 3D view and the cooling split by wing, never the kW totals.</li>
+        <li><b>T1–T2 and T3–T4 differ here only by which floors you occupy.</b> T3–T4 is drawn as a copy of T1–T2.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script id="engine">
+/*ENGINE-START*/
+// Port of gov_towers_load_model.py (design-day path, noise off) plus the dispatch rules in alt_power.py and utility_reliability.py.
+const A0={floors:12,wings:2,wing_gross_m2:720,wing_usable_m2:650,core_m2:430,floor_to_floor_m:4,facade_len_per_wing_m:90,wwr:.5,
+U_glass:2.8,SHGC:.35,IAC:.85,U_wall:.7,U_roof:.35,m2_per_desk:6,attendance:.9,desk_W_active:130,desk_W_idle:15,lpd_office_W_m2:7.5,lpd_core_W_m2:6,
+desks_per_mfp:25,mfp_W_active:150,mfp_W_idle:20,pantries_per_floor:2,people_sens_W:75,people_lat_W:55,oa_Lps_person:2.5,oa_Lps_m2:.3,
+Ti:24,RHi:.55,design_Tmax:33,design_Tmin:24,dewpoint:23.5,lat:6.8,cooling_safety:1.05,rtu_kW_per_TR_35C:1.1,rtu_temp_coeff:.022,rtu_fan_kW_per_TR:.22,
+capacity_margin:1.1,core_indoor_TR_per_floor:20,vrv_kW_per_TR_35C:.98,core_fan_kW_per_floor:1.5,telecom_cooling_kWth:56,it_ups_load_kW:62,ups_eff:.94,
+elevators:6,ext_lighting_kW:16.5,xfmr_kVA:2000,xfmr_R:.01,xfmr_X:.0794,V_LL:480};
+const PFc={"Office lighting":.95,"Workstations":.96,"Printers/MFP":.9,"Pantries":.99,"Core lighting":.95,"Core misc":.92,"IT/UPS":.98,"Elevators":.9,"Pumps":.85,"Exhaust fans":.82,"Exterior lighting":.95,"Open-office HVAC compressors":.86,"Open-office HVAC fans":.88,"Core VRV HVAC":.94,"Losses":1};
+const THDc={"Office lighting":.15,"Workstations":.25,"Printers/MFP":.25,"IT/UPS":.06,"Core VRV HVAC":.35,"Elevators":.35,"Core lighting":.15};
+const CATS=Object.keys(PFc), FLOOR_COLS=["Office lighting","Workstations","Printers/MFP","Pantries","Core lighting","Core misc","Open-office HVAC compressors","Open-office HVAC fans","Core VRV HVAC"];
+const N=288,DT=1/12,DOY=258,SQ3=Math.sqrt(3);
+const GEN={kW:1000,kVA:1250,prp:.9,A:15,B:.255,offKW:700,minLoad:.3,step:.6,xd:.15,om:5,diesel:300};
+const TAR={kWh:50.9,kVA:1836.75};
+const interp=(x,xs,ys)=>{if(x<=xs[0])return ys[0];for(let i=1;i<xs.length;i++)if(x<=xs[i])return ys[i-1]+(ys[i]-ys[i-1])*(x-xs[i-1])/(xs[i]-xs[i-1]);return ys[ys.length-1]};
+const clip=(v,a,b)=>Math.min(b,Math.max(a,v));
+const sch=(pts)=>{const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);return h=>interp(h,xs,ys)};
+const OCCW=sch([[0,0],[6.9,0],[7.5,.35],[8.5,1],[11.9,1],[12.2,.75],[12.9,.75],[13.2,1],[15.8,1],[16.5,.45],[17.5,.06],[19,.03],[24,0]]),
+ OCCS=sch([[0,0],[8.5,0],[9.5,.06],[12.5,.06],[13.5,0],[24,0]]),
+ LITW=sch([[0,.05],[6.5,.05],[7.2,.6],[8,.95],[16.2,.95],[17.2,.5],[18,.3],[20,.3],[20.5,.05],[24,.05]]),
+ LITS=sch([[0,.05],[8.5,.05],[9,.12],[13,.12],[13.5,.05],[24,.05]]),
+ LUNCH=sch([[0,0],[7.3,0],[7.8,.45],[9,.45],[9.3,.15],[11.4,.15],[11.8,1],[13.3,1],[13.6,.2],[15.5,.2],[16.5,0],[24,0]]),
+ CORE=sch([[0,.5],[6,.5],[6.3,1],[19.5,1],[19.8,.5],[24,.5]]),
+ RUSH=sch([[0,0],[7.3,0],[7.6,1],[8.8,1],[9.1,.35],[11.6,.35],[11.9,.9],[13.3,.9],[13.6,.35],[15.6,.35],[15.9,1],[17,1],[17.4,.1],[24,0]]);
+const humD=(Td,P=101.325)=>{const pw=.6108*Math.exp(17.27*Td/(Td+237.3));return 622*pw/(P-pw)};
+const humR=(T,RH,P=101.325)=>{const pw=RH*.6108*Math.exp(17.27*T/(T+237.3));return 622*pw/(P-pw)};
+function sunVec(doy,h,lat){const r=Math.PI/180,decl=r*23.45*Math.sin(r*360/365*(284+doy)),B=r*360/364*(doy-81),eot=9.87*Math.sin(2*B)-7.53*Math.cos(B)-1.5*Math.sin(B),
+ sh=h+((60-58.15)*4+eot)/60,H=r*15*(sh-12),phi=r*lat;
+ return{E:-Math.cos(decl)*Math.sin(H),N:Math.sin(decl)*Math.cos(phi)-Math.cos(decl)*Math.sin(phi)*Math.cos(H),U:Math.sin(decl)*Math.sin(phi)+Math.cos(decl)*Math.cos(phi)*Math.cos(H)}}
+function lagf(x,tau){const y=new Array(x.length),k=1-Math.exp(-DT/tau);let acc=x[0];for(let i=0;i<x.length;i++){acc+=k*(x[i]-acc);y[i]=acc}return y}
+function derived(a){const d={};d.office_m2_floor=a.wings*a.wing_usable_m2;d.office_m2=d.office_m2_floor*a.floors;d.core_m2_total=a.core_m2*a.floors;d.gross_m2_floor=a.wings*a.wing_gross_m2+a.core_m2;d.gross_m2=d.gross_m2_floor*a.floors;
+ d.desks_floor=Math.round(d.office_m2_floor/a.m2_per_desk);d.desks=d.desks_floor*a.floors;d.glass_m2_floor=a.wings*a.facade_len_per_wing_m*a.floor_to_floor_m*a.wwr;d.wall_m2_floor=a.wings*a.facade_len_per_wing_m*a.floor_to_floor_m*(1-a.wwr);d.roof_m2=d.gross_m2_floor;
+ d.oa_Lps_floor=d.desks_floor*a.oa_Lps_person+d.office_m2_floor*a.oa_Lps_m2;d.mfp=Math.ceil(d.desks/a.desks_per_mfp);return d}
+function weatherDay(Tmax,Tmin,cloud,td,shower){const To=[],Td=[],cl=[];for(let i=0;i<N;i++){const h=i*DT;let f;if(h>=6&&h<=14)f=(1-Math.cos(Math.PI*(h-6)/8))/2;else{const x=(h-14+24)%24;f=(1+Math.cos(Math.PI*x/16))/2}
+ let t=Tmin+(Tmax-Tmin)*f,c=cloud;if(shower&&h>=14&&h<=16.5){t-=2.5*Math.sin(Math.PI*(h-14)/2.5);c*=.35}To.push(t);Td.push(Math.min(td,t-.3));cl.push(c)}return{To,Td,cl}}
+function simulate(a,wx,cap,day){const d=derived(a),F=a.floors,desks=d.desks,P={},n=N;const arr=f=>{const o=new Array(n);for(let i=0;i<n;i++)o[i]=f(i,i*DT);return o};
+ const wd=day==="wd",sat=day==="sat";
+ const occ=arr((i,h)=>(wd?OCCW(h):sat?OCCS(h):0)*a.attendance),lf=arr((i,h)=>wd?LITW(h):sat?LITS(h):.05),hon=arr((i,h)=>wd&&h>=6.5&&h<17.5?1:0),con=arr((i,h)=>wd&&h>=6.5&&h<18.5?1:0);
+ const sv=[],dni=[],dhi=[],ghi=[],vert=[];for(let i=0;i<n;i++){const s=sunVec(DOY,i*DT,a.lat),c=wx.cl[i],up=Math.max(s.U,0),dn=(s.U>.02?880*Math.exp(-.26/Math.max(s.U,.05)):0)*c,dh=s.U>0?(95+70*up)*(1.6-.6*c):0,gh=dn*up+dh;let v=0;
+  for(const q of [[0,1],[1,0],[0,-1],[-1,0]]){const cosi=Math.max(q[0]*s.E+q[1]*s.N,0);v+=.25*(dn*cosi+.5*dh+.5*.2*gh)}sv.push(s);dni.push(dn);dhi.push(dh);ghi.push(gh);vert.push(v)}
+ const att1=Math.max(a.attendance,.01);
+ P["Office lighting"]=lf.map(v=>a.lpd_office_W_m2*d.office_m2/1000*v);
+ P["Workstations"]=occ.map(o=>(desks*o*a.desk_W_active+desks*(1-o)*a.desk_W_idle)/1000);
+ P["Printers/MFP"]=occ.map(o=>{const m=clip(o/att1,0,1);return d.mfp*(m*a.mfp_W_active+(1-m)*a.mfp_W_idle)/1000});
+ const pan=F*a.pantries_per_floor;P["Pantries"]=arr((i,h)=>pan*(.25+1.8*(wd?LUNCH(h):0)));
+ P["Core lighting"]=arr((i,h)=>a.lpd_core_W_m2*d.core_m2_total/1000*(wd?CORE(h):.5));
+ P["Core misc"]=occ.map(o=>F*(.3+.9*o/att1));
+ P["IT/UPS"]=arr(()=>a.it_ups_load_kW/a.ups_eff+2.5);
+ const rush=arr((i,h)=>wd?RUSH(h):sat?.05:0);
+ P["Elevators"]=rush.map(r=>a.elevators*(.8+11*r));
+ P["Pumps"]=rush.map((r,i)=>3.5+20*clip(r*.8+occ[i]*.4,0,1.1));
+ P["Exhaust fans"]=con.map(c=>c>0?10:3);
+ P["Exterior lighting"]=arr((i,h)=>(h>=18.25||h<6)?a.ext_lighting_kW:0);
+ const Wi=humR(a.Ti,a.RHi),glass=d.glass_m2_floor*F,wall=d.wall_m2_floor*F;
+ const qsi=vert.map(v=>glass*a.SHGC*a.IAC*v/1000),qsl=lagf(qsi,2),qSolar=qsi.map((v,i)=>.45*v+.55*qsl[i]);
+ const qGlass=wx.To.map(t=>glass*a.U_glass*(t-a.Ti)/1000);
+ const swl=lagf(wx.To.map((t,i)=>t+.026*ghi[i]*.6),4),qWall=swl.map(v=>wall*a.U_wall*(v-a.Ti)/1000);
+ const srl=lagf(wx.To.map((t,i)=>t+.04*ghi[i]*.7),3),qRoof=srl.map(v=>d.roof_m2*a.U_roof*(v-a.Ti)/1000);
+ const ppl=occ.map(o=>desks*o),ps0=ppl.map(p=>p*a.people_sens_W/1000),pl=ppl.map(p=>p*a.people_lat_W/1000),psl=lagf(ps0,2),ps=ps0.map((v,i)=>.6*v+.4*psl[i]);
+ const internal=arr(i=>P["Office lighting"][i]+P["Workstations"][i]+P["Printers/MFP"][i]+P["Pantries"][i]),il=lagf(internal,3),qInt=internal.map((v,i)=>.55*v+.45*il[i]);
+ const oa=hon.map(v=>d.oa_Lps_floor*F*v),qOaS=oa.map((v,i)=>1.23*v*(wx.To[i]-a.Ti)/1000),qOaL=oa.map((v,i)=>3.01*v*Math.max(humD(wx.Td[i])-Wi,0)/1000);
+ const space=arr(i=>qSolar[i]+qGlass[i]+qWall[i]+qRoof[i]+ps[i]+pl[i]+qInt[i]),qOpen=arr(i=>(space[i]+qOaS[i]+qOaL[i])*a.cooling_safety);
+ const stored=new Array(n).fill(0);let acc=0;const ks=1-Math.exp(-DT/6);for(let i=0;i<n;i++){if(hon[i]===0){acc+=ks*(.35*Math.max(space[i],0)*6-acc);stored[i]=0}else{const rel=Math.min(acc,acc*DT/.8);stored[i]=rel/DT;acc-=rel}}
+ const qTot=arr(i=>(qOpen[i]+stored[i])*hon[i]),TR=qTot.map(v=>v/3.517);
+ const served=cap!=null?TR.map(v=>Math.min(v,cap)):TR,fanTR=cap!=null?cap:Math.max(...TR);
+ P["Open-office HVAC compressors"]=served.map((v,i)=>v*a.rtu_kW_per_TR_35C*(1+a.rtu_temp_coeff*(wx.To[i]-35)));
+ P["Open-office HVAC fans"]=hon.map(v=>a.rtu_fan_kW_per_TR*fanTR*v);
+ const teleTR=a.telecom_cooling_kWth/3.517,coreTR=arr(i=>a.core_indoor_TR_per_floor*F*(.28+.2*occ[i]/att1+.05*clip(vert[i]/300,0,1.2)+.012*(wx.To[i]-24))*con[i]);
+ P["Core VRV HVAC"]=arr(i=>(coreTR[i]+teleTR)*a.vrv_kW_per_TR_35C*(1+.02*(wx.To[i]-35))+a.core_fan_kW_per_floor*F*con[i]+1);
+ const base=arr(i=>Object.keys(P).reduce((s,c)=>s+P[c][i],0));P["Losses"]=base.map(v=>7+.018*v);
+ return{P,TR,qTot,cSolar:qSolar.map((v,i)=>v*hon[i]*a.cooling_safety),cRoof:qRoof.map((v,i)=>v*hon[i]*a.cooling_safety),space,occ,lf,hon,con,sv,dni,dhi,ghi,vert,To:wx.To,d}}
+function params(c){const a={...A0,m2_per_desk:c.m2,attendance:c.att,desk_W_active:c.deskW,it_ups_load_kW:c.server,Ti:c.Ti,design_Tmax:Math.max(33,c.Tmax),dewpoint:Math.max(23.5,c.dew)};
+ if(c.hvac==="aged")a.rtu_kW_per_TR_35C=1.21;if(c.hvac==="vrf"){a.rtu_kW_per_TR_35C=.92;a.rtu_fan_kW_per_TR=.1}return a}
+function sizing(a){const des={...a,Ti:24},wx=weatherDay(des.design_Tmax,des.design_Tmin,1,des.dewpoint,false),s=simulate(des,wx,null,"wd");let st=0;for(let i=0;i<N;i++){const h=i*DT;if(h>=9.5&&h<=17.5&&s.TR[i]>st)st=s.TR[i]}return{steadyTR:st,capTR:st*a.capacity_margin}}
+const DEF={preset:"base",day:"wd",Tmax:33,dew:23.5,sun:1,shower:false,Ti:24,m2:6,att:.9,deskW:130,server:62,hvac:"dx",evN:0,evManaged:false,pv:0,nA:12,nB:12,floors:null,strategy:"gpl",capOn:true,capKW:1500,capUnit:"kW",outOn:false,outStart:14.17,outDur:1.5,failOn:false,failPair:1,failAt:14.5,stagger:false,ahf:0,bessKWh:13300,bessKW:1700,rot:-15};
+function masks(c){if(c.floors)return c.floors;const m=n=>Array.from({length:12},(_,i)=>i<n);return[m(c.nA),m(c.nB)]}
+const binPk=(x)=>{let m=-1,at=0;for(let j=0;j<96;j++){const v=(x[j*3]+x[j*3+1]+x[j*3+2])/3;if(v>m){m=v;at=j}}return{v:m,at:at}};
+const binAt=(x,j)=>(x[j*3]+x[j*3+1]+x[j*3+2])/3;
+function run(c){const a=params(c),des=sizing(a),wx=weatherDay(c.Tmax,24,c.sun,c.dew,c.shower),s=simulate(a,wx,des.capTR,c.day),V=a.V_LL,mk=masks(c),wd=c.day==="wd";
+ const ev=[],pv=[];for(let i=0;i<N;i++){const h=i*DT;const sh=clip(interp(h,[7,8,9.5,11.5,13.5,16,18],[0,.55,.8,.7,.45,.25,0]),0,1);let p=c.evN*7.2*sh;if(c.evManaged)p=Math.min(p,.5*c.evN*7.2);ev.push(p);pv.push(c.pv*.78*.95*Math.sin(Math.PI*clip((h-6.25)/12,0,1))*.85*c.sun)}
+ const nF=[mk[0].filter(Boolean).length,mk[1].filter(Boolean).length],frac=nF.map(n=>n/12),isF={};FLOOR_COLS.forEach(k=>isF[k]=1);
+ const tan={};CATS.forEach(k=>tan[k]=Math.tan(Math.acos(PFc[k])));
+ const L=[0,1].map(p=>{const f=frac[p],P=[],Q=[],hvO=[],hvC=[],Ih0=[];for(let i=0;i<N;i++){let pp=0,qq=0,ih=0;for(const k of CATS){const w=isF[k]?f:1,v=s.P[k][i]*w;pp+=v;qq+=v*tan[k];if(THDc[k])ih+=v/PFc[k]*1000/(SQ3*V)*THDc[k]}
+   P.push(pp+ev[i]-pv[i]);Q.push(qq+22+ev[i]*.2);hvO.push((s.P["Open-office HVAC compressors"][i]+s.P["Open-office HVAC fans"][i])*f);hvC.push(s.P["Core VRV HVAC"][i]*f);Ih0.push(.8*ih)}return{P,Q,hvO,hvC,Ih0}});
+ const iS=Math.round(c.outStart*12),iE=iS+Math.max(1,Math.round(c.outDur*12)),iR=iE+2,iF=Math.round(c.failAt*12);
+ const R=[0,1].map(()=>({src:new Array(N),gen:new Array(N).fill(0),grid:new Array(N).fill(0),bat:new Array(N).fill(0),kW:new Array(N).fill(0),kvar:new Array(N).fill(0),kVA:new Array(N).fill(0),gridKVA:new Array(N).fill(0),I:new Array(N).fill(0),hvFrac:new Array(N).fill(1),unserved:new Array(N).fill(0),ithd:new Array(N).fill(0),vthd:new Array(N).fill(0),V:new Array(N).fill(0),T:new Array(N).fill(c.Ti),sets:new Array(N).fill(0),setsOK:new Array(N).fill(2),cold:new Array(N).fill(0),ih:new Array(N).fill(0)}));
+ const batS=new Array(N).fill(0),totalGridRaw=new Array(N).fill(0),capEff=new Array(N).fill(Infinity),events=[];
+ const C=.05*s.d.gross_m2,UA=20,etaS=Math.sqrt(.88),usable=c.bessKWh*.9;let soc=usable,To=[c.Ti,c.Ti];
+ const gplV=h=>1+.006*Math.sin(2*Math.PI*(h-4)/24)-.013*Math.exp(-(((h-19.5)/1.6)**2));
+ const spec={5:.75,7:.5,11:.3,13:.2},snorm=Math.sqrt(.75**2+.5**2+.3**2+.2**2);
+ for(let pass=0;pass<2;pass++){const log=pass===1;let prevGen=[false,false],t0=[-999,-999];
+  for(let i=0;i<N;i++){const h=i*DT,out=c.outOn&&i>=iS&&i<iE,win=c.outOn&&i>=iS&&i<iR;
+   for(let p=0;p<2;p++){const l=L[p],r=R[p],ok=2-((c.failOn&&c.failPair===p&&i>=iF)?1:0);r.setsOK[i]=ok;
+    const sched=p===1&&(c.strategy==="o2a"||(c.strategy==="o2b"&&wd&&h>=6.5&&h<18));const onGen=win||sched,o2=sched;
+    let P=l.P[i],Q=l.Q[i],hv=l.hvO[i]+l.hvC[i],frac2=1;
+    if(onGen){if(!prevGen[p]){t0[p]=i}const lim=ok*GEN.kW*(o2?GEN.prp:1);let stage=1;if(c.stagger){const m=(i-t0[p])*5;stage=m<10?0:Math.min(1,(m-10)/30)}
+     const nonHV=P-hv;let f2=stage;if(nonHV+hv*f2>lim)f2=hv>0?Math.max(0,(lim-nonHV)/hv):0;frac2=Math.min(f2,1);let load=nonHV+hv*frac2,uns=0;if(load>lim){uns=load-lim;load=lim}
+     const shed=hv*(1-frac2);Q=Math.max(0,Q-shed*.57);if(ok===0){uns=load;load=0;Q=0;frac2=0}
+     if(!prevGen[p]&&log&&i>0){const block=load;const acc=GEN.step*ok*GEN.kW;events.push({i,sev:block>acc?"crit":"info",p,kind:"block",kW:block,acc,text:`T${p?"3–T4":"1–T2"} transfers to generators at ${Math.round(block).toLocaleString()} kW. First-step acceptance is about ${acc.toLocaleString()} kW${block>acc?", so the sets could stall. Hold back the HVAC and step it in":"; the sets can take it"}.`})}
+     prevGen[p]=true;r.src[i]=ok===0?"dark":"gen";r.gen[i]=load;r.grid[i]=0;r.kW[i]=load;r.kvar[i]=Q;r.hvFrac[i]=frac2;r.unserved[i]=uns;
+    }else{let add=0;if(c.outOn&&!c.stagger&&i>=iR&&i<iR+12&&!sched){add=(s.P["Open-office HVAC compressors"][i]*frac[p]+l.hvC[i])*.3*Math.exp(-(i-iR)*5/20)}
+     if(prevGen[p]&&log&&i===iR)events.push({i,sev:"info",p,kind:"ret",text:`T${p?"3–T4":"1–T2"} returns to GPL 10 min after supply is restored${c.stagger?" with HVAC staged":`, with a cold-load pickup of ${Math.round(add)} kW`}.`});
+     prevGen[p]=false;P+=add;Q+=add*.593;r.cold[i]=add;r.src[i]="gpl";r.gen[i]=0;r.grid[i]=P;r.kW[i]=P;r.kvar[i]=Q;r.hvFrac[i]=1;r.unserved[i]=0}}
+   // AHF harmonic + PF correction per pair (done before shaving so a kVA cap sees the corrected PF)
+   const ah=[0,1].map(p=>{const r=R[p],l=L[p],Pk=r.kW[i];let Qk=r.kvar[i];const S0=Math.hypot(Pk,Qk),I0=S0*1000/(SQ3*V);let Ih=(l.Ih0[i]+.04*I0);if(c.hvac==="vrf")Ih+=.8*(s.P["Open-office HVAC compressors"][i]*frac[p]/.86*1000/(SQ3*V))*.35;
+    if(Pk<=0){Ih=0}let Ihr=Ih;if(c.ahf>0&&Ih>0){const Ic=Math.min(c.ahf,Ih);Ihr=Math.max(Ih-Ic,.05*I0);const Ires=Math.sqrt(Math.max(c.ahf*c.ahf-Ic*Ic,0)),pf=Pk/Math.max(S0,1),qT=Pk*(Math.tan(Math.acos(Math.min(pf,1)))-Math.tan(Math.acos(.98)));if(qT>0){const iq=qT*1000/(SQ3*V),use=Math.min(Ires,iq);Qk=Math.max(0,Qk-use*SQ3*V/1000)}}
+    return{Qk,Ihr}});
+   // complex-level shaving
+   const gt=R[0].grid[i]+R[1].grid[i],kvT=ah[0].Qk*(R[0].grid[i]>0?1:0)+ah[1].Qk*(R[1].grid[i]>0?1:0),pfT=gt>0?gt/Math.hypot(gt,kvT):1,cap=c.capOn?(c.capUnit==="kVA"?c.capKW*pfT:c.capKW):Infinity;capEff[i]=cap;totalGridRaw[i]=gt;
+   batS[i]=0;let exc=Math.max(0,gt-cap);
+   if(!out&&c.strategy==="o3"&&exc>0){const avail=(R[0].setsOK[i]+R[1].setsOK[i])*GEN.kW*GEN.prp,g=Math.min(Math.max(exc,GEN.minLoad*GEN.kW),avail);const g3=Math.min(g,R[1].setsOK[i]*GEN.kW*GEN.prp),g1=g-g3;
+    R[1].gen[i]=g3;R[1].grid[i]-=g3;R[0].gen[i]=g1;R[0].grid[i]-=g1;if(g3>0)R[1].src[i]="par";if(g1>0)R[0].src[i]="par"}
+   if(!win&&c.strategy==="o4"){if(exc>0){const dis=Math.min(exc,c.bessKW,soc*etaS/DT);soc-=dis*DT/etaS;batS[i]=dis;const sh=[R[0].grid[i]/gt,R[1].grid[i]/gt];[0,1].forEach(p=>{R[p].bat[i]=dis*sh[p];R[p].grid[i]-=dis*sh[p];if(dis>0)R[p].src[i]="bat"})}
+    else if((h<6.5||h>=18||!wd)&&soc<usable&&isFinite(cap)){const chg=Math.min(c.bessKW,cap-gt,(usable-soc)/etaS/DT);if(chg>0){soc+=chg*DT*etaS;batS[i]=-chg;const sh=gt>0?R[0].grid[i]/gt:.5;R[0].grid[i]+=chg*sh;R[1].grid[i]+=chg*(1-sh)}}}
+   for(let p=0;p<2;p++){const r=R[p],Pk=r.kW[i],{Qk,Ihr}=ah[p];
+    const S=Math.hypot(Pk,Qk),I=S*1000/(SQ3*V);r.kVA[i]=S;r.I[i]=I;r.kvar[i]=Qk;r.ih[i]=Ihr;r.ithd[i]=I>0?100*Ihr/I:0;r.gridKVA[i]=Pk>0?S*(r.grid[i]/Pk):0;
+    const onG=r.src[i]==="gen";if(onG){const sets=r.setsOK[i];const lpu=S/(GEN.kVA*Math.max(sets,1));let sum=0;for(const hh of [5,7,11,13])sum+=((spec[hh]/snorm)*(r.ithd[i]/100)*lpu*hh*GEN.xd)**2;r.vthd[i]=Math.sqrt(sum)*100;r.V[i]=sets?480:0;r.sets[i]=Math.min(sets,r.gen[i]>GEN.offKW?2:1)}
+    else{const Irated=a.xfmr_kVA*1000/(SQ3*V);r.vthd[i]=Math.sqrt(1.1*1.1+(100*Ihr/Irated*a.xfmr_X*5.5)**2);const gP=r.grid[i]/a.xfmr_kVA,gQ=Math.sqrt(Math.max(r.gridKVA[i]**2-r.grid[i]**2,0))/a.xfmr_kVA;r.V[i]=480*gplV(h)*(1-(a.xfmr_R*gP+a.xfmr_X*gQ));r.sets[i]=r.gen[i]>0?Math.min(r.setsOK[i],Math.ceil(r.gen[i]/(GEN.kW*GEN.prp))):0}
+    const hvAv=s.hon[i]*r.hvFrac[i],Qun=Math.max(s.space[i],0)*frac[p]*(1-hvAv);To[p]+=DT*(Qun-UA*(To[p]-c.Ti))/C-DT*hvAv*(To[p]-c.Ti)/.8;if(To[p]<c.Ti)To[p]=c.Ti;r.T[i]=To[p]}
+   if(log&&c.outOn&&i===iS)events.unshift({i,sev:"crit",kind:"out",text:`GPL supply lost for ${c.outDur.toFixed(1)} h. Transfer to generators is specified within 10 s.`});
+   if(log&&c.failOn&&i===iF)events.push({i,sev:"crit",kind:"fail",text:`One set fails on T${c.failPair?"3–T4":"1–T2"}. The remaining set must carry the load, so HVAC is shed if needed.`})}
+  if(pass===0)events.length=0}
+ const gridT=new Array(N),genT=new Array(N),batT=new Array(N);for(let i=0;i<N;i++){gridT[i]=R[0].grid[i]+R[1].grid[i];genT[i]=R[0].gen[i]+R[1].gen[i];batT[i]=batS[i]}
+ const exc=gridT.map((g,i)=>Math.max(0,g-capEff[i]));const fuel=(()=>{let L2=0;for(let i=0;i<N;i++){const g=genT[i];if(g<=0)continue;if(c.strategy==="o3"&&!(R[0].src[i]==="gen"||R[1].src[i]==="gen")){L2+=(Math.ceil(g/(GEN.kW*GEN.prp))*GEN.A+GEN.B*g)*DT}else for(const r of R){const k=r.gen[i];if(k>0)L2+=((k<GEN.offKW?1:Math.min(2,r.setsOK[i]))*GEN.A+GEN.B*k)*DT}}return L2})();
+ const genKWh=genT.reduce((a2,b)=>a2+b,0)*DT,gridKWh=gridT.reduce((a2,b)=>a2+b,0)*DT,pkKW=binPk(gridT),pkkVA=[binPk(R[0].gridKVA),binPk(R[1].gridKVA)],pkS=[binPk(R[0].kVA),binPk(R[1].kVA)];
+ return{cfg:c,a,des,s,L,R,ev,pv,gridT,genT,batT,capEff,exc,events,masks:mk,nF,frac,
+  day:{pkKW:pkKW.v,pkAt:pkKW.at*.25,hoursOver:exc.filter(v=>v>.5).length*DT,kWhOver:exc.reduce((x,y)=>x+y,0)*DT,genKWh,gridKWh,fuel,genHours:genT.filter(v=>v>0).length*DT,
+   energyG:gridKWh*TAR.kWh,fuelG:fuel*GEN.diesel+genKWh*GEN.om,demandG:(pkkVA[0].v+pkkVA[1].v)*TAR.kVA,pkkVA,pkS,maxT:[Math.max(...R[0].T.map((v,i)=>s.occ[i]>0?v:0)),Math.max(...R[1].T.map((v,i)=>s.occ[i]>0?v:0))],minSOC:null}}}
+function future(c){const r=run({...DEF,...c,capOn:false}),x=r.R[0],pk=binPk(x.kVA),e=(()=>{let t=0;for(let j=0;j<96;j++)t+=binAt(x.kW,j);return t*.25})();return{kW:binAt(x.kW,pk.at),kVA:pk.v,tr:r.des.steadyTR,kWh:e,at:pk.at*.25}}
+const HOT={Tmax:34.5,dew:24,hvac:"aged"},ITG={deskW:160,server:120},VRF={hvac:"vrf"},TYP={m2:9,att:.75,deskW:110};
+const REF=[["F0","Maxed-out fit-out",{},1501,1640,16499,478],["F1","Typical government occupancy",TYP,1191,1303,13539,369],["F2","Hotter climate, aged HVAC",HOT,1605,1759,17363,497],["F3","IT growth",ITG,1660,1805,18849,498],["F4","20 EV chargers, unmanaged",{evN:20},1569,1707,17228,478],["F5","Rooftop PV 150 kWp",{pv:150},1410,1557,15777,478],["F6","VRF open office",VRF,1355,1473,15082,478],["F7","F2 + F3 + F4",{...HOT,...ITG,evN:20},1835,1995,20463,517],["F8","F7 mitigated",{...HOT,...ITG,hvac:"vrf",evN:20,evManaged:true,pv:150},1528,1664,17583,517]];
+/*ENGINE-END*/
+</script>
+
+<script>
+const $=id=>document.getElementById(id);
+const PRESETS=[
+ ["The 1.5 MW question",[
+  ["base","Full occupancy, GPL only, 1.5 MW limit",{}],
+  ["o1a","O1 Phased: 5 floors per pair",{nA:5,nB:5}],
+  ["o1b","O1 Phased: T1–T2 full, T3–T4 empty",{nA:12,nB:0}],
+  ["o2a","O2a T3–T4 on generators 24/7",{strategy:"o2a"}],
+  ["o2b","O2b T3–T4 on generators in working hours",{strategy:"o2b"}],
+  ["o3","O3 Peak shaving in parallel with GPL",{strategy:"o3"}],
+  ["o4","O4 Battery, 13.3 MWh / 1.7 MW",{strategy:"o4"}]]],
+ ["Faults (with no 1.5 MW limit)",[
+  ["trip","GPL trip at the afternoon peak, no staging",{capOn:false,outOn:true,outStart:14.17,outDur:1.5,_t:171}],
+  ["tripst","GPL trip with HVAC staged back in",{capOn:false,outOn:true,outStart:14.17,outDur:1.5,stagger:true,_t:185}],
+  ["trip1","GPL trip, then one T3–T4 set fails",{capOn:false,outOn:true,outStart:14.17,outDur:2,failOn:true,failPair:1,failAt:14.5,stagger:true,_t:180}],
+  ["o2bf","O2b with a set failure at 10:00",{strategy:"o2b",failOn:true,failPair:1,failAt:10,_t:125}]]],
+ ["Future scenarios (design day)",REF.map(r=>[r[0],r[0]+" "+r[1],{capOn:false,...r[2]}])],
+ ["Weather and day",[
+  ["typ","Typical September weekday",{Tmax:31.9,dew:23.4,sun:.86}],
+  ["rain","Afternoon shower",{Tmax:31.5,dew:23.4,sun:.86,shower:true}],
+  ["sat","Saturday",{day:"sat",Tmax:31.9,dew:23.4,sun:.86,_t:132}],
+  ["sun","Sunday",{day:"sun",Tmax:31.9,dew:23.4,sun:.86,_t:132}]]]];
+let cfg={...DEF},res=null,ti=159,mapMode="supply",sel={p:0,w:0,l:6},chTab="supply",playing=false,speed=1;
+const fmt=(v,d=0)=>Number(v).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});
+const hhmm=i=>{const m=i*5;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")};
+const pname=["T1–T2","T3–T4"];
+const G=m=>"G$"+(m>=1e6?fmt(m/1e6,2)+" M":fmt(m/1e3,0)+" k");
+
+/* ---------- controls ---------- */
+function slider(k,label,min,max,step,f){return `<label class="f"><span>${label}</span><output id="o_${k}"></output><input id="c_${k}" data-k="${k}" data-f="${f||""}" type="range" min="${min}" max="${max}" step="${step}"></label>`}
+function check(k,label){return `<label class="c"><input id="c_${k}" data-k="${k}" type="checkbox"><span>${label}</span></label>`}
+function sel_(k,label,opts){return `<div><label class="sublab" for="c_${k}">${label}</label><select id="c_${k}" data-k="${k}">${opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</select></div>`}
+const presetOpts=PRESETS.map(g=>`<optgroup label="${g[0]}">${g[1].map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</optgroup>`).join("");
+$("left").innerHTML=`
+<div class="grp"><h2>Scenario</h2><label class="sublab" for="preset">Load a case, then change anything below</label><select id="preset">${presetOpts}<option value="custom" hidden>Custom conditions</option></select></div>
+<div class="grp"><h2>Supply</h2>
+ ${sel_("strategy","How the complex is run",[["gpl","GPL only"],["o2a","O2a T3–T4 on generators 24/7"],["o2b","O2b T3–T4 on generators 06:30–18:00"],["o3","O3 Peak shave in parallel"],["o4","O4 Battery peak shave"]])}
+ ${check("capOn","Apply GPL supply limit to the whole complex")}
+ ${slider("capKW","GPL limit",500,4000,50,"cap")}
+ ${sel_("capUnit","GPL limit is in",[["kW","kW"],["kVA","kVA (GPL to confirm)"]])}
+ ${sel_("ahf","Active harmonic filter, each pair",[["0","None"],["320","320 A (what the 400 A breaker allows)"],["600","600 A (report recommendation)"],["950","950 A (as labelled on PCM-ELE-90)"]])}
+</div>
+<div class="grp"><h2>Faults</h2>
+ ${check("outOn","GPL outage")}
+ ${slider("outStart","Starts",0,23.75,.25,"h")}
+ ${slider("outDur","Lasts",.25,8,.25,"dur")}
+ ${check("stagger","Stage HVAC after a transfer")}
+ ${check("failOn","One generator set fails")}
+ ${sel_("failPair","On",[["0","T1–T2"],["1","T3–T4"]])}
+ ${slider("failAt","At",0,23.75,.25,"h")}
+</div>
+<div class="grp"><h2>Occupancy</h2>
+ ${slider("nA","T1–T2 occupied floors",0,12,1,"fl")}
+ ${slider("nB","T3–T4 occupied floors",0,12,1,"fl")}
+ ${slider("att","Attendance at peak",.3,1,.05,"pct")}
+ ${slider("m2","Floor area per desk",5,14,.5,"m2")}
+ ${slider("deskW","Power per active desk",60,200,5,"W")}
+ ${slider("server","Server room and IT load",20,200,2,"kW")}
+</div>
+<div class="grp"><h2>Weather</h2>
+ ${sel_("day","Day",[["wd","Weekday"],["sat","Saturday"],["sun","Sunday"]])}
+ ${slider("Tmax","Peak outdoor temperature",27,37,.1,"C")}
+ ${slider("dew","Dew point",20,26,.1,"C")}
+ ${slider("sun","Sunshine (100% is clear sky)",.1,1,.01,"pct")}
+ ${check("shower","Afternoon shower, 14:00–16:30")}
+</div>
+<div class="grp"><h2>Equipment</h2>
+ ${sel_("hvac","Open-office HVAC",[["dx","Packaged DX, new"],["aged","Packaged DX, aged 10%"],["vrf","VRF"]])}
+ ${slider("Ti","Indoor set-point",22,27,.5,"C")}
+ ${slider("evN","EV chargers per pair, 7.2 kW",0,60,1,"n")}
+ ${check("evManaged","Manage EV charging to 50%")}
+ ${slider("pv","Rooftop PV per pair",0,400,10,"kWp")}
+ ${slider("bessKWh","Battery energy (O4)",1000,25000,100,"kWh")}
+ ${slider("bessKW","Battery power (O4)",200,3500,50,"kWb")}
+ ${slider("rot","Site rotation from true north",-180,180,5,"deg")}
+</div>`;
+const F={h:v=>{const h=Math.floor(v),m=Math.round((v-h)*60);return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")},dur:v=>fmt(v,2)+" h",fl:v=>v+" of 12",pct:v=>Math.round(v*100)+"%",m2:v=>fmt(v,1)+" m²",W:v=>v+" W",kW:v=>v+" kW",C:v=>fmt(v,1)+" °C",n:v=>String(v),kWp:v=>v+" kWp",kWh:v=>fmt(v/1000,1)+" MWh",kWb:v=>fmt(v/1000,2)+" MW",deg:v=>v+"°",cap:v=>fmt(v)+" "+cfg.capUnit};
+function syncControls(){document.querySelectorAll("[data-k]").forEach(e=>{const k=e.dataset.k;if(!(k in cfg))return;if(e.type==="checkbox")e.checked=!!cfg[k];else e.value=cfg[k];const o=$("o_"+k);if(o)o.textContent=(F[e.dataset.f]||(v=>v))(+cfg[k])});$("preset").value=cfg.preset}
+document.querySelector("#left").addEventListener("input",ev=>{const e=ev.target;if(e.id==="preset")return loadPreset(e.value);const k=e.dataset.k;if(!k)return;let v=e.type==="checkbox"?e.checked:e.type==="range"?+e.value:e.value;if(k==="ahf"||k==="failPair")v=+v;cfg[k]=v;if(k==="nA"||k==="nB")cfg.floors=null;cfg.preset="custom";syncControls();schedule()});
+function loadPreset(id){for(const g of PRESETS)for(const o of g[1])if(o[0]===id){const {_t,...rest}=o[2];cfg={...DEF,...rest,preset:id,rot:cfg.rot};if(_t!=null)ti=_t;else if(id==="sat"||id==="sun")ti=132;else ti=159;$("t").value=ti}syncControls();recalc()}
+let schedT=0;function schedule(){clearTimeout(schedT);schedT=setTimeout(recalc,60)}
+$("maps").innerHTML=[["supply","Supply"],["cool","Cooling"],["people","People"],["light","Lights"]].map(m=>`<button data-m="${m[0]}" aria-pressed="${m[0]==="supply"}">${m[1]}</button>`).join("");
+$("maps").onclick=e=>{const m=e.target.dataset.m;if(!m)return;mapMode=m;[...$("maps").children].forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===m));paintNow()};
+$("t").oninput=e=>{ti=+e.target.value;fracT=0;paintNow()};
+$("play").onclick=()=>setPlay(!playing);
+function setPlay(v){playing=v;$("play").textContent=v?"❚❚ Pause":"▶ Play";$("play").setAttribute("aria-pressed",v);if(v)lastTs=0}
+
+/* ---------- floor helpers ---------- */
+function floorInfo(p,w,l,i){const r=res,s=r.s,on=r.masks[p][l];if(!on)return{on:false,kW:0,cool:0,people:0,light:0,plug:0,hvac:0,desks:0};
+ const w2=wingShare(p,w,i),hvF=r.R[p].hvFrac[i];const P=s.P,light=P["Office lighting"][i]/24,plug=(P["Workstations"][i]+P["Printers/MFP"][i]+P["Pantries"][i])/24,core=(P["Core lighting"][i]+P["Core misc"][i])/24;
+ const hv=(P["Open-office HVAC compressors"][i]+P["Open-office HVAC fans"][i]+P["Core VRV HVAC"][i])/24*hvF;
+ let cool=(s.qTot[i]-s.cSolar[i]-s.cRoof[i])/24+s.cSolar[i]*w2/12;if(l===11)cool+=s.cRoof[i]/2;cool*=hvF;
+ return{on:true,desks:Math.round(s.d.desks_floor/2),people:s.d.desks_floor/2*s.occ[i],light,plug,core,hvac:hv,cool,kW:light+plug+core+hv}}
+function wingShare(p,w,i){const r=res,s=r.s,sv=s.sv[i],E=sv.E,Nn=sv.N,dni=s.dni[i],dhi=s.dhi[i];const phi=(p===1?Math.PI:0)+cfg.rot*Math.PI/180;
+ const sh=[0,1].map(k=>{const th=(k===0?10:-10)*Math.PI/180,faces=[[0,1,32],[0,-1,32],[k===0?-1:1,0,23]];let tot=0;for(const f of faces){let x=f[0]*Math.cos(th)+f[1]*Math.sin(th),z=-f[0]*Math.sin(th)+f[1]*Math.cos(th);const x2=x*Math.cos(phi)+z*Math.sin(phi),z2=-x*Math.sin(phi)+z*Math.cos(phi);const c=Math.max(0,x2*E+z2*(-Nn));tot+=f[2]*(dni*c+.5*dhi)}return tot});
+ const t=sh[0]+sh[1];return t>0?sh[w]/t:.5}
+
+/* ---------- status panel ---------- */
+$("right").innerHTML=`
+<div class="panel hero"><h2 id="heroh">GPL demand, whole complex</h2><div style="margin-top:4px"><span class="big" id="hk"></span> <span class="mono" style="font-size:15px">kW</span></div><div class="of" id="hof"></div><div class="meter" id="hm"><i id="hmi"></i><b id="hmb"></b></div></div>
+<div class="pairs" id="pairs">${[0,1].map(p=>`<div class="pc"><h3>${pname[p]}</h3><div class="src"><i id="si${p}"></i><span id="st${p}"></span></div><dl>
+<dt>Load</dt><dd id="kw${p}"></dd><dt>Apparent</dt><dd id="kva${p}"></dd><dt>Transformer</dt><dd id="xf${p}"></dd><dt>Sets</dt><dd id="gs${p}"></dd><dt>Bus current</dt><dd id="ia${p}"></dd><dt>Bus voltage</dt><dd id="vb${p}"></dd><dt>Power factor</dt><dd id="pf${p}"></dd><dt>ITHD</dt><dd id="it${p}"></dd><dt>VTHD</dt><dd id="vt${p}"></dd><dt>Indoor</dt><dd id="ti${p}"></dd></dl></div>`).join("")}</div>
+<div class="panel"><h2>Alarms now</h2><div id="alarms" style="margin-top:6px" aria-live="polite"></div></div>
+<div class="panel"><h2>This day</h2><dl style="margin-top:6px">
+<dt>GPL peak (15 min)</dt><dd id="d1"></dd><dt>Time above GPL limit</dt><dd id="d2"></dd><dt>Energy above limit</dt><dd id="d3"></dd><dt>Generators</dt><dd id="d4"></dd><dt>Diesel burned</dt><dd id="d5"></dd><dt>GPL energy cost</dt><dd id="d6"></dd><dt>Diesel and O&amp;M</dt><dd id="d7"></dd><dt>GPL demand charge, per month</dt><dd id="d8"></dd><dt>NEC 220.87, worst pair</dt><dd id="d9"></dd></dl></div>`;
+const SRC={gpl:["var(--gpl)","GPL"],gen:["var(--gen)","Generators"],par:["var(--gen)","GPL + generators"],bat:["var(--bat)","GPL + battery"],dark:["#555","No supply"]};
+function alarmsAt(i){const r=res,c=cfg,a=[];const g=r.gridT[i],cap=r.capEff[i];
+ if(c.capOn&&g>cap+.5)a.push(["crit",`GPL draw is ${fmt(g-cap)} kW over the ${fmt(c.capKW)} ${c.capUnit} limit.`]);
+ r.events.filter(e=>Math.abs(e.i-i)<=2).forEach(e=>a.push([e.sev,e.text]));
+ for(const p of [0,1]){const x=r.R[p],n=pname[p],loadS=x.kVA[i],gS=x.gridKVA[i];
+  if(x.src[i]==="dark")a.push(["crit",`${n} has no supply.`]);
+  if(x.unserved[i]>.5)a.push(["crit",`${n} generators are ${fmt(x.unserved[i])} kW short, even with all HVAC shed.`]);
+  else if(x.hvFrac[i]<.995&&x.src[i]==="gen")a.push(["warn",`${n} HVAC is held to ${fmt(x.hvFrac[i]*100)}% to stay within the generators.`]);
+  if(x.src[i]==="gpl"&&gS>2000)a.push(["crit",`${n} transformer is overloaded at ${fmt(gS/20)}%.`]);else if(x.src[i]==="gpl"&&gS>1600)a.push(["warn",`${n} transformer is above 80%, at ${fmt(gS/20)}%.`]);
+  if(x.I[i]>3040)a.push(["crit",`${n} bus current of ${fmt(x.I[i])} A is above the 3,040 A breaker setting.`]);
+  if(x.src[i]==="gen"&&x.gen[i]<GEN.minLoad*GEN.kW&&x.gen[i]>0)a.push(["warn",`${n} set is at ${fmt(x.gen[i]/10)}% load. Below 30%, sets wet-stack.`]);
+  if(x.vthd[i]>8&&x.src[i]==="gen")a.push(["warn",`${n} VTHD is ${fmt(x.vthd[i],1)}% on generators, over the 8% IEEE 519 limit for 480 V.`]);
+  if(r.s.occ[i]>.05&&x.T[i]>27)a.push(["warn",`${n} indoor estimate is ${fmt(x.T[i],1)} °C with people in the building.`]);
+ }
+ if(c.strategy==="o2a"||c.strategy==="o2b")a.push(["info","T3–T4 sets run far above the 200 h/yr standby limit, so they must be prime rated."]);
+ if(c.ahf===950)a.push(["info","PCM-ELE-90 feeds this 950 A filter from a 400 A breaker. The ratings do not agree."]);
+ return a}
+function paintStatus(i){const r=res,c=cfg,g=r.gridT[i],cap=c.capKW;$("hk").textContent=fmt(g);const over=c.capOn&&g>r.capEff[i]+.5;
+ $("hof").textContent=c.capOn?`against the ${fmt(c.capKW)} ${c.capUnit} limit${r.genT[i]>0?`, plus ${fmt(r.genT[i])} kW from generators`:""}${r.batT[i]>0?`, plus ${fmt(r.batT[i])} kW from battery`:r.batT[i]<0?`, charging battery at ${fmt(-r.batT[i])} kW`:""}`:`no limit applied${r.genT[i]>0?`, plus ${fmt(r.genT[i])} kW from generators`:""}`;
+ const sc=Math.max(4000,cap*1.15);$("hmi").style.width=Math.min(100,g/sc*100)+"%";$("hmb").style.left=Math.min(100,cap/sc*100)+"%";$("hmb").hidden=!c.capOn;$("hm").classList.toggle("over",over);
+ for(const p of [0,1]){const x=r.R[p],src=SRC[x.src[i]];$("si"+p).style.background=src[0];$("st"+p).textContent=src[1];$("kw"+p).textContent=fmt(x.kW[i])+" kW";$("kva"+p).textContent=fmt(x.kVA[i])+" kVA";
+  $("xf"+p).textContent=x.grid[i]>0?fmt(x.gridKVA[i]/20)+"%":"off";const genPct=x.gen[i]>0?` ${fmt(x.gen[i]/(Math.max(x.setsOK[i],1)*10))}%`:"";$("gs"+p).textContent=x.gen[i]>0?`${x.sets[i]} on${genPct}`:(x.setsOK[i]<2?"1 failed":"standby");$("ia"+p).textContent=fmt(x.I[i])+" A";$("vb"+p).textContent=x.V[i]>0?fmt(x.V[i],0)+" V":"0 V";
+  $("pf"+p).textContent=x.kVA[i]>0?fmt(x.kW[i]/x.kVA[i],3):"–";$("it"+p).textContent=fmt(x.ithd[i],1)+"%";$("vt"+p).textContent=fmt(x.vthd[i],1)+"%";$("ti"+p).textContent=fmt(x.T[i],1)+" °C"}
+ const al=alarmsAt(i),rank={crit:0,warn:1,info:2};al.sort((a,b)=>rank[a[0]]-rank[b[0]]);const lab={crit:"ALARM",warn:"WARN",info:"NOTE",ok:"OK"};$("alarms").innerHTML=(al.length?al:[["ok","No abnormal conditions at this time."]]).map(a=>`<div class="al ${a[0]}"><em>${lab[a[0]]}</em><span>${a[1]}</span></div>`).join("");
+ const d=r.day;$("d1").textContent=fmt(d.pkKW)+" kW at "+hhmm(d.pkAt*12);$("d2").textContent=c.capOn?fmt(d.hoursOver,1)+" h":"no limit";$("d3").textContent=c.capOn?fmt(d.kWhOver)+" kWh":"–";$("d4").textContent=d.genKWh>0?fmt(d.genKWh)+" kWh":"not run";$("d5").textContent=fmt(d.fuel)+" L";$("d6").textContent=G(d.energyG);$("d7").textContent=G(d.fuelG);$("d8").textContent=G(d.demandG);
+ const w=Math.max(d.pkS[0].v,d.pkS[1].v)*1.25;$("d9").textContent=fmt(w)+" kVA, "+fmt(w/20)+"%"}
+
+/* ---------- chart ---------- */
+const TABS={supply:"Supply",use:"End use",temp:"Temperature"};
+$("chtabs").innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-t="${k}" aria-pressed="${k==="supply"}">${v}</button>`).join("");
+$("chtabs").onclick=e=>{const t=e.target.dataset.t;if(!t)return;chTab=t;[...$("chtabs").children].forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===t));drawChart()};
+function series(){const r=res,s=r.s;if(chTab==="supply"){const a=[{n:"GPL T1–T2",c:"var(--gpl)",v:r.R[0].grid},{n:"GPL T3–T4",c:"var(--t34)",v:r.R[1].grid},{n:"Generators",c:"var(--gen)",v:r.genT},{n:"Battery",c:"var(--bat)",v:r.batT.map(x=>Math.max(x,0))}];return{stack:a.filter(x=>x.v.some(y=>y>.5)),unit:"kW",lines:cfg.capOn?[{n:`GPL limit ${fmt(cfg.capKW)} ${cfg.capUnit}`,v:r.capEff,dash:1}]:[],title:"Whole complex by source"}}
+ if(chTab==="use"){const sum=(ks,serve)=>new Array(N).fill(0).map((_,i)=>{let t=0;for(const p of [0,1])for(const k of ks){const ff=FLOOR_COLS.includes(k)?r.frac[p]:1;t+=s.P[k][i]*ff*(serve?r.R[p].hvFrac[i]:1)}return t});
+  return{stack:[{n:"Lighting",c:"var(--gpl)",v:sum(["Office lighting","Core lighting","Exterior lighting"])},{n:"Desks, printers, pantries",c:"var(--gen)",v:sum(["Workstations","Printers/MFP","Pantries","Core misc"])},{n:"Open-office HVAC",c:"var(--t34)",v:sum(["Open-office HVAC compressors","Open-office HVAC fans"],1)},{n:"Core VRV",c:"var(--bat)",v:sum(["Core VRV HVAC"],1)},{n:"UPS, lifts, pumps, losses",c:"var(--s5)",v:sum(["IT/UPS","Elevators","Pumps","Exhaust fans","Losses"])}],unit:"kW",lines:[],title:"Whole complex by end use, before PV and EV"}}
+ return{stack:[],unit:"°C",lines:[{n:"Outdoor",v:s.To,c:"var(--ink2)"},{n:"T1–T2 indoor estimate",v:r.R[0].T,c:"var(--gpl)"},{n:"T3–T4 indoor estimate",v:r.R[1].T,c:"var(--t34)"}],title:"Outdoor air and indoor estimate"}}
+let chartGeom=null;
+function nice(m){const p=Math.pow(10,Math.floor(Math.log10(m||1))),x=m/p;return(x<=1?1:x<=2?2:x<=2.5?2.5:x<=4?4:x<=5?5:10)*p}
+function drawChart(){const el=$("chart"),W=el.clientWidth||600,H=220,S=series(),ml=44,mr=10,mt=8,mb=22,PW=W-ml-mr,PH=H-mt-mb;$("chtitle").textContent=S.title;
+ const tot=new Array(N).fill(0);S.stack.forEach(q=>q.v.forEach((v,i)=>tot[i]+=Math.max(v,0)));let mx=Math.max(...tot,...S.lines.flatMap(l=>l.v.filter(isFinite)),1),mn=0;
+ if(chTab==="temp"){mn=Math.floor(Math.min(...S.lines.flatMap(l=>l.v))-1);mx=Math.ceil(mx+1)}else mx=nice(mx*1.04);
+ const x=i=>ml+i/287*PW,y=v=>mt+PH-(v-mn)/(mx-mn)*PH;let o=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${S.title}">`;
+ const tk=chTab==="temp"?(mx-mn>12?4:2):mx/4;for(let v=mn;v<=mx+.01;v+=tk){o+=`<line x1="${ml}" x2="${W-mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${ml-6}" y="${y(v)+4}" text-anchor="end" font-size="11" font-family="var(--mono)" fill="var(--mute)">${fmt(v)}</text>`}
+ for(let h=0;h<=24;h+=3){const px=x(Math.min(h*12,287));o+=`<text x="${px}" y="${H-6}" text-anchor="${h===0?"start":h===24?"end":"middle"}" font-size="11" font-family="var(--mono)" fill="var(--mute)">${String(h).padStart(2,"0")}:00</text>`}
+ o+=`<line x1="${ml}" x2="${W-mr}" y1="${y(mn)}" y2="${y(mn)}" stroke="var(--axis)" stroke-width="1"/>`;
+ const base=new Array(N).fill(0);const label=[];S.stack.forEach(q=>{let top="",bot="";let bestI=0,best=0;for(let i=0;i<N;i++){const t=base[i]+Math.max(q.v[i],0);top+=(i?"L":"M")+x(i).toFixed(1)+" "+y(t).toFixed(1);if(q.v[i]>best){best=q.v[i];bestI=i}}for(let i=N-1;i>=0;i--)bot+="L"+x(i).toFixed(1)+" "+y(base[i]).toFixed(1);
+  o+=`<path d="${top}${bot}Z" fill="${q.c}" stroke="var(--panel)" stroke-width="1.5"/>`;if(y(base[bestI])-y(base[bestI]+best)>18&&S.stack.length<=4)label.push([x(bestI),(y(base[bestI])+y(base[bestI]+best))/2+4,q.n,q.c]);for(let i=0;i<N;i++)base[i]+=Math.max(q.v[i],0)});
+ label.forEach(l=>{const bw=l[2].length*6.6+8;const lx=clip(l[0],ml+bw/2+2,W-mr-bw/2-2);o+=`<rect x="${lx-bw/2}" y="${l[1]-12}" width="${bw}" height="16" fill="var(--panel)"/><text x="${lx}" y="${l[1]}" text-anchor="middle" font-size="11.5" fill="var(--ink)">${l[2]}</text>`});
+ S.lines.forEach(l=>{let d="";for(let i=0;i<N;i++){if(isFinite(l.v[i]))d+=(d?"L":"M")+x(i).toFixed(1)+" "+y(l.v[i]).toFixed(1)}o+=`<path d="${d}" fill="none" stroke="${l.c||"var(--ink)"}" stroke-width="2" ${l.dash?'stroke-dasharray="6 4"':""}/>`});
+ o+=`<line id="ph" y1="${mt}" y2="${mt+PH}" stroke="var(--ink)" stroke-width="1.5"/><line id="xh" y1="${mt}" y2="${mt+PH}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="2 3" visibility="hidden"/></svg><div id="tip" hidden></div>`;el.innerHTML=o;
+ chartGeom={x,ml,PW,S,W};$("chleg").innerHTML=S.stack.map(q=>`<span><i style="background:${q.c}"></i>${q.n}</span>`).join("")+S.lines.map(l=>l.dash?`<span><i class="dash"></i>${l.n}</span>`:`<span><i style="background:${l.c}"></i>${l.n}</span>`).join("");
+ const sv=el.querySelector("svg");const idx=e=>{const b=el.getBoundingClientRect(),px=(e.clientX-b.left)/b.width*W;return clip(Math.round((px-ml)/PW*287),0,287)};
+ sv.onpointermove=e=>{const i=idx(e),b=el.getBoundingClientRect(),xh=el.querySelector("#xh"),tip=$("tip");xh.setAttribute("x1",x(i));xh.setAttribute("x2",x(i));xh.setAttribute("visibility","visible");
+  tip.hidden=false;tip.innerHTML=`<div><b>${hhmm(i)}</b></div>`+S.stack.map(q=>`<div><span><i style="display:inline-block;width:9px;height:9px;background:${q.c};margin-right:5px"></i>${q.n}</span><span class="n">${fmt(q.v[i])} ${S.unit}</span></div>`).join("")+S.lines.map(l=>isFinite(l.v[i])?`<div><span>${l.n}</span><span class="n">${fmt(l.v[i],S.unit==="°C"?1:0)} ${S.unit}</span></div>`:"").join("");
+  const px=(e.clientX-b.left);tip.style.left=(px>b.width/2?px-tip.offsetWidth-12:px+12)+"px";tip.style.top="6px";if(e.buttons&1){ti=i;fracT=0;$("t").value=i;paintNow()}};
+ sv.onpointerleave=()=>{el.querySelector("#xh").setAttribute("visibility","hidden");$("tip").hidden=true};sv.onpointerdown=e=>{const i=idx(e);ti=i;fracT=0;$("t").value=i;paintNow()};
+ movePlayhead();drawHourly()}
+function movePlayhead(){if(!chartGeom)return;const ph=$("ph");if(ph){const px=chartGeom.x(ti);ph.setAttribute("x1",px);ph.setAttribute("x2",px)}}
+function drawHourly(){const r=res;let o="<table><thead><tr><th>Hour</th><th>GPL T1–T2 kW</th><th>GPL T3–T4 kW</th><th>Generators kW</th><th>Battery kW</th><th>Over limit kW</th></tr></thead><tbody>";for(let h=0;h<24;h++){const i=h*12;o+=`<tr><td>${String(h).padStart(2,"0")}:00</td><td>${fmt(r.R[0].grid[i])}</td><td>${fmt(r.R[1].grid[i])}</td><td>${fmt(r.genT[i])}</td><td>${fmt(r.batT[i])}</td><td>${fmt(r.exc[i])}</td></tr>`}$("hourly").innerHTML=o+"</tbody></table>"}
+
+/* ---------- single line ---------- */
+function sldPair(p,ox){const q=(id)=>`${id}${p}`;return `<g transform="translate(${ox},0)">
+<text class="h" x="4" y="16">${pname[p]}</text>
+<text x="96" y="40">GPL 13.8 kV</text><path id="${q("wA")}" class="w" d="M90 22V58M90 74V96M90 132V168M90 182V212"/>
+<rect id="${q("bA")}" class="brk" x="82" y="58" width="16" height="16"/><text x="102" y="70">DM1-A</text>
+<circle id="${q("x1")}" class="sym" cx="90" cy="105" r="12"/><circle id="${q("x2")}" class="sym" cx="90" cy="122" r="12"/><text x="107" y="108">2,000 kVA</text><text x="107" y="122">8% Z</text><text id="${q("xv")}" class="v" x="107" y="136"></text>
+<rect id="${q("bM")}" class="brk" x="82" y="168" width="14" height="14"/><text x="4" y="179">3,040 A</text>
+<circle id="${q("g1")}" class="sym" cx="196" cy="42" r="13"/><text x="196" y="46" text-anchor="middle">G1</text><circle id="${q("g2")}" class="sym" cx="246" cy="42" r="13"/><text x="246" y="46" text-anchor="middle">G2</text><text x="264" y="14" text-anchor="end">1,000 kW / 1,250 kVA</text>
+<path id="${q("wG")}" class="w" d="M196 55V82M246 55V82M190 82H252M221 82V168M221 182V212"/><text id="${q("gv")}" class="v" x="228" y="110"></text><text x="228" y="96">Sets</text>
+<rect id="${q("bG")}" class="brk" x="214" y="168" width="14" height="14"/><text x="232" y="179">3,040 A</text>
+<path d="M97 175H213" stroke="var(--axis)" stroke-dasharray="3 3" fill="none"/><text x="155" y="170" text-anchor="middle">ATS 10 s</text>
+<path id="${q("wB")}" class="w" d="M16 212H296" style="stroke-width:4"/><text x="4" y="205">3,590 A</text><text id="${q("bv")}" class="v" x="296" y="205" text-anchor="end"></text>
+<path id="${q("w1")}" class="w" d="M40 212V256"/><path id="${q("w2")}" class="w" d="M100 212V256"/><path id="${q("w3")}" class="w" d="M160 212V256"/><path id="${q("w4")}" class="w" d="M220 212V256"/><path id="${q("w5")}" class="w fut" d="M280 212V256"/>
+<text x="40" y="272" text-anchor="middle">Floors</text><text x="100" y="272" text-anchor="middle">HVAC</text><text x="160" y="272" text-anchor="middle">UPS</text><text x="220" y="272" text-anchor="middle">Lifts, pumps</text><text x="280" y="272" text-anchor="middle">AHF</text>
+<text id="${q("f1")}" class="v" x="40" y="290" text-anchor="middle"></text><text id="${q("f2")}" class="v" x="100" y="290" text-anchor="middle"></text><text id="${q("f3")}" class="v" x="160" y="290" text-anchor="middle"></text><text id="${q("f4")}" class="v" x="220" y="290" text-anchor="middle"></text><text id="${q("f5")}" class="v" x="280" y="290" text-anchor="middle"></text>
+<text x="160" y="304" text-anchor="middle">200 kVA</text><text x="280" y="304" text-anchor="middle">future</text>
+<text id="${q("sa")}" x="4" y="330"></text></g>`}
+$("sld").innerHTML=sldPair(0,8)+sldPair(1,364);
+function cls(el,c,base){if(el)el.setAttribute("class",base+(c?" "+c:""))}
+function paintSLD(i){const r=res,s=r.s;for(const p of [0,1]){const x=r.R[p],src=x.src[i],gridOn=x.grid[i]>0||src==="gpl",genOn=x.gen[i]>0,fp=r.frac[p],hvF=x.hvFrac[i];const busC=src==="dark"?"":(src==="gen"?"gen":"gpl");
+ cls($("wA"+p),!c_out(i)?"gpl":"","w");["x1","x2"].forEach(k=>cls($(k+p),!c_out(i)?"gpl":"","sym"));cls($("bA"+p),"closed","brk");cls($("bM"+p),gridOn?"closed":"","brk");cls($("bG"+p),genOn?"closed":"","brk");
+ cls($("wG"+p),genOn?"gen":"","w");const fail=x.setsOK[i]<2;const nn=x.sets[i];cls($("g1"+p),genOn&&nn>=1?"gen":"","sym");cls($("g2"+p),(genOn&&nn>=2?"gen":"")+(fail?" fail":""),"sym");
+ cls($("wB"+p),busC,"w");["w1","w2","w3","w4"].forEach(k=>cls($(k+p),busC,"w"));cls($("w5"+p),cfg.ahf>0?busC:"fut","w");
+ const P=s.P,fl=(P["Office lighting"][i]+P["Workstations"][i]+P["Printers/MFP"][i]+P["Pantries"][i]+P["Core lighting"][i]+P["Core misc"][i])*fp,hv=(r.L[p].hvO[i]+r.L[p].hvC[i])*hvF+x.cold[i],ups=P["IT/UPS"][i],sv=P["Elevators"][i]+P["Pumps"][i]+P["Exhaust fans"][i]+P["Exterior lighting"][i];
+ $("xv"+p).textContent=x.grid[i]>0?`${fmt(x.gridKVA[i])} kVA, ${fmt(x.gridKVA[i]/20)}%`:"no load";$("gv"+p).textContent=genOn?`${fmt(x.gen[i])} kW`:"standby";$("bv"+p).textContent=`${fmt(x.I[i])} A, ${fmt(x.V[i])} V`;
+ $("f1"+p).textContent=fmt(fl)+" kW";$("f2"+p).textContent=fmt(hv)+" kW";$("f3"+p).textContent=fmt(ups)+" kW";$("f4"+p).textContent=fmt(sv)+" kW";$("f5"+p).textContent=cfg.ahf?fmt(Math.min(cfg.ahf,x.ih[i]+0))+" A":"off";
+ $("sa"+p).textContent=`ITHD ${fmt(x.ithd[i],1)}%, VTHD ${fmt(x.vthd[i],1)}%`}}
+const c_out=i=>{const iS=Math.round(cfg.outStart*12),iE=iS+Math.max(1,Math.round(cfg.outDur*12));return cfg.outOn&&i>=iS&&i<iE};
+
+/* ---------- floor matrix ---------- */
+function buildMatrix(){let o='<span></span><span>T1</span><span>T2</span><span>T3</span><span>T4</span>';for(let l=11;l>=0;l--){o+=`<span>L${l+1}</span>`;for(const [p,w] of [[0,0],[0,1],[1,0],[1,1]])o+=`<button id="fb${p}${w}${l}" data-p="${p}" data-w="${w}" data-l="${l}" aria-label="Tower ${p*2+w+1} level ${l+1}"></button>`}$("fmat").innerHTML=o}
+buildMatrix();$("fmat").onclick=e=>{const b=e.target.closest("button");if(!b)return;sel={p:+b.dataset.p,w:+b.dataset.w,l:+b.dataset.l};paintFloors();scene3d&&scene3d.mark()};
+const srcHex={gpl:"#3987e5",gen:"#d95926",par:"#d95926",bat:"#c98500",dark:"#20262a"};
+function ramp(t,a,b){t=clip(t,0,1);const pa=[0,1,2].map(k=>parseInt(a.substr(1+k*2,2),16)),pb=[0,1,2].map(k=>parseInt(b.substr(1+k*2,2),16));return"#"+pa.map((v,k)=>Math.round(v+(pb[k]-v)*t).toString(16).padStart(2,"0")).join("")}
+function floorColor(p,w,l,i){const inf=floorInfo(p,w,l,i);if(!inf.on)return{c:"#3a4145",i:.12};if(mapMode==="supply"){const s=res.R[p].src[i];return{c:srcHex[s],i:s==="dark"?.1:.32+.68*res.s.lf[i]}}if(mapMode==="cool"){const t=inf.cool/maxCool;return{c:ramp(t,"#184f95","#cde2fb"),i:inf.cool>0?.35+.65*t:.1}}if(mapMode==="people"){const t=res.s.occ[i];return{c:ramp(t,"#184f95","#cde2fb"),i:.2+.8*t}}const t=res.s.lf[i]*(res.R[p].src[i]==="dark"?0:1);return{c:"#ffd9a0",i:.08+.92*t}}
+let maxCool=1;
+function calcMaxCool(){let m=1;for(let i=0;i<N;i+=3)for(const w of [0,1]){const inf=floorInfo(0,w,6,i);if(inf.on&&inf.cool>m)m=inf.cool;const inf2=floorInfo(1,w,6,i);if(inf2.on&&inf2.cool>m)m=inf2.cool}maxCool=m*1.15}
+function paintFloors(){const i=ti;for(const [p,w] of [[0,0],[0,1],[1,0],[1,1]])for(let l=0;l<12;l++){const b=$(`fb${p}${w}${l}`),cc=floorColor(p,w,l,i);b.style.background=res.masks[p][l]?cc.c:"var(--panel2)";b.style.opacity=res.masks[p][l]?Math.max(.45,cc.i):1;b.classList.toggle("sel",sel.p===p&&sel.w===w&&sel.l===l)}
+ const f=floorInfo(sel.p,sel.w,sel.l,i),t=sel.p*2+sel.w+1;$("floordetail").innerHTML=`<h3 style="color:var(--ink);font-size:15px;font-weight:600">Tower ${t}, level ${sel.l+1}</h3>`+(f.on?`<dl style="margin-top:4px"><dt>Desks in this wing</dt><dd>${f.desks}</dd><dt>People now</dt><dd>${fmt(f.people)}</dd><dt>Lighting</dt><dd>${fmt(f.light,1)} kW</dd><dt>Desks and pantries</dt><dd>${fmt(f.plug,1)} kW</dd><dt>Core share</dt><dd>${fmt(f.core,1)} kW</dd><dt>HVAC share</dt><dd>${fmt(f.hvac,1)} kW</dd><dt>Cooling delivered</dt><dd>${fmt(f.cool,1)} kWth</dd><dt>Total on this wing</dt><dd>${fmt(f.kW,1)} kW</dd></dl>`:`<p style="margin:4px 0;color:var(--ink2);font-size:13px">Vacant. This level draws no lighting, plug or HVAC load in the model.</p>`)+`<button id="togfl">${f.on?"Mark level "+(sel.l+1)+" vacant in "+pname[sel.p]:"Occupy level "+(sel.l+1)+" in "+pname[sel.p]}</button>`;
+ $("togfl").onclick=()=>{const m=masks(cfg).map(a=>a.slice());m[sel.p][sel.l]=!m[sel.p][sel.l];cfg.floors=m;cfg.nA=m[0].filter(Boolean).length;cfg.nB=m[1].filter(Boolean).length;cfg.preset="custom";syncControls();recalc()}}
+
+/* ---------- 3D ---------- */
+const scene3d=(function(){const host=$("stage");if(!window.THREE){host.insertAdjacentHTML("beforeend",'<div id="nowebgl">The 3D library did not load. The floor grid, chart and single line below still work.</div>');return null}
+ let R;try{R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true})}catch(e){host.insertAdjacentHTML("beforeend",'<div id="nowebgl">This browser could not start WebGL. The floor grid, chart and single line below still work.</div>');return null}
+ R.setPixelRatio(Math.min(devicePixelRatio||1,2));R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;host.prepend(R.domElement);R.domElement.style.touchAction="pan-y";
+ const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(36,1,5,2000),root=new THREE.Group();S.add(root);
+ const hemi=new THREE.HemisphereLight(0xffffff,0x445044,.6);S.add(hemi);const sun=new THREE.DirectionalLight(0xfff2dd,1);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);const sc=sun.shadow.camera;sc.left=-160;sc.right=160;sc.top=160;sc.bottom=-160;sc.near=10;sc.far=700;S.add(sun,sun.target);
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(1400,1400),new THREE.MeshStandardMaterial({color:0x46553f,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;root.add(ground);
+ // Site, indicative, from the south-west render: lawn before the near block, roundabout between the blocks, parking to the south-east.
+ const flatM=c=>new THREE.MeshStandardMaterial({color:c,roughness:1});
+ const flat=(w,d,x,z,c,y=.05)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),flatM(c));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.receiveShadow=true;root.add(m);return m};
+ const ASP=0x3b3f43,PAV=0x8f9088,LAWN=0x587540;
+ flat(115,50,-75,22,LAWN,.04);flat(70,20,-65,-3,PAV,.06);flat(70,20,65,3,PAV,.06);
+ flat(13,74,0,40,ASP,.07);flat(135,13,60,42,ASP,.07);flat(150,13,-52,74,ASP,.07);
+ flat(150,52,62,76,ASP,.06);
+ const ring=new THREE.Mesh(new THREE.RingGeometry(9,18,48),flatM(ASP));ring.rotation.x=-Math.PI/2;ring.position.set(0,.08,0);root.add(ring);
+ const isle=new THREE.Mesh(new THREE.CircleGeometry(9,40),flatM(LAWN));isle.rotation.x=-Math.PI/2;isle.position.set(0,.09,0);root.add(isle);
+ for(let r=0;r<2;r++)for(let k=0;k<7;k++)flat(.4,20,-5+k*23,66+r*20,0xd8d8d0,.1);
+ const trunkG=new THREE.CylinderGeometry(.35,.5,5,6),crownG=new THREE.IcosahedronGeometry(4.2,1),trunkM=flatM(0x4f3f30),crownM=new THREE.MeshStandardMaterial({color:0x3f6233,roughness:1,flatShading:true});
+ [[-125,10],[-105,30],[-85,14],[-62,38],[-40,18],[-125,42],[-22,40],[-20,12],[20,34],[-10,58],[14,58],[36,58],[60,58],[84,58],[108,58],[132,58],[132,28],[138,62],[-148,-18],[-30,-58],[30,-60]].forEach(q=>{const t=new THREE.Mesh(trunkG,trunkM),c=new THREE.Mesh(crownG,crownM);t.position.set(q[0],2.5,q[1]);c.position.set(q[0],7,q[1]);c.scale.y=.8;c.castShadow=t.castShadow=true;root.add(t,c)});
+ const carG=new THREE.BoxGeometry(2,1.4,4.4);[[6,70,0x2f4f7f],[29,72,0xc8c8c4],[52,66,0x444c54],[75,70,0xb0b4b8],[98,88,0x2f4f7f],[29,88,0x9a2f2f],[75,86,0xd8d8d4],[121,68,0x444c54]].forEach(q=>{const c=new THREE.Mesh(carG,new THREE.MeshStandardMaterial({color:q[2],roughness:.4}));c.position.set(q[0],.8,q[1]);c.castShadow=true;root.add(c)});
+ // Facade from the render: pale panels and fins with one window column per bay, 9 bays on a long face and 3 on an end.
+ function tex(rx,glow){const c=document.createElement("canvas");c.width=64;c.height=64;const g=c.getContext("2d");g.fillStyle=glow?"#000":"#d6d6ce";g.fillRect(0,0,64,64);if(!glow){g.fillStyle="#b9bab2";g.fillRect(0,0,9,64);g.fillRect(55,0,9,64)}g.fillStyle=glow?"#fff":"#3a454d";g.fillRect(19,8,26,48);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,1);t.anisotropy=4;return t}
+ const texW=tex(9),texE=tex(3),glowW=tex(9,1),glowE=tex(3,1);const FH=4,picks=[],floorsM={},slab=new THREE.MeshStandardMaterial({color:0xcfd0c8,roughness:.9}),concrete=new THREE.MeshStandardMaterial({color:0xd2d2ca,roughness:.95}),coreM=new THREE.MeshStandardMaterial({color:0x8e9499,roughness:.9}),coreDark=new THREE.MeshStandardMaterial({color:0x4a4e4f,roughness:.5});
+ const fans=[];
+ function mkFloorMats(){const side=new THREE.MeshStandardMaterial({color:0xffffff,map:texE,emissive:0xffffff,emissiveMap:glowE,roughness:.7}),face=new THREE.MeshStandardMaterial({color:0xffffff,map:texW,emissive:0xffffff,emissiveMap:glowW,roughness:.7});return{side,face,arr:[side,side,slab,slab,face,face]}}
+ function pair(p,x,z,rot){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;root.add(g);
+  const core=new THREE.Mesh(new THREE.BoxGeometry(22,13*FH+2,24),[coreM,coreM,slab,slab,coreDark,coreM]);core.position.set(0,(13*FH+2)/2,-1);core.castShadow=core.receiveShadow=true;g.add(core);
+  [0,1].forEach(w=>{const sgn=w===0?-1:1,th=(w===0?10:-10)*Math.PI/180,wg=new THREE.Group();wg.position.set(sgn*(11+15.5*Math.cos(th)),0,1+15.5*Math.sin(Math.abs(th)));wg.rotation.y=th;g.add(wg);
+   for(let l=0;l<12;l++){const m=mkFloorMats(),b=new THREE.Mesh(new THREE.BoxGeometry(32,FH-.35,23.8),m.arr);b.position.y=(l+.5)*FH;b.castShadow=b.receiveShadow=true;b.userData={p,w,l};wg.add(b);picks.push(b);floorsM[`${p}${w}${l}`]=m;
+    const sl=new THREE.Mesh(new THREE.BoxGeometry(32.6,.35,24.4),slab);sl.position.y=(l+1)*FH-.02;wg.add(sl)}
+   const st=new THREE.Mesh(new THREE.BoxGeometry(5,12*FH+2,10),concrete);st.position.set(sgn*18.5,(12*FH+2)/2,0);st.castShadow=true;wg.add(st);
+   const rf=new THREE.Mesh(new THREE.BoxGeometry(32.4,.9,24.2),concrete);rf.position.y=12*FH+.45;wg.add(rf);
+   for(let a=0;a<3;a++)for(let b=0;b<2;b++){const u=new THREE.Mesh(new THREE.BoxGeometry(6,2.2,3.6),coreM);u.position.set(-9+a*9,12*FH+2,-5+b*10);u.castShadow=true;wg.add(u);const fan=new THREE.Mesh(new THREE.BoxGeometry(2.8,.12,.5),new THREE.MeshStandardMaterial({color:0x22282c}));fan.position.set(-9+a*9,12*FH+3.25,-5+b*10);wg.add(fan);fans.push({m:fan,p})}});
+  const sx=-62,subG=new THREE.Group();subG.position.set(sx,0,-6);g.add(subG);const sub=new THREE.Mesh(new THREE.BoxGeometry(14,5,9),coreM);sub.position.y=2.5;sub.castShadow=true;subG.add(sub);
+  const gens=[0,1].map(k=>{const mat=new THREE.MeshStandardMaterial({color:0x8b9498,emissive:0xd95926,emissiveIntensity:0,roughness:.6}),m=new THREE.Mesh(new THREE.BoxGeometry(11,3.4,3.2),mat);m.position.set(-2+(k*0),1.7,12+k*6);m.castShadow=true;subG.add(m);return mat});
+  const lineM=new THREE.LineBasicMaterial({color:0x3987e5}),lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx*.9,.4,-20),new THREE.Vector3(0,.4,-20),new THREE.Vector3(0,.4,-13)]);const lin=new THREE.Line(lg,lineM);g.add(lin);
+  return{g,gens,lineM,tags:[{t:`T${p*2+1}`,v:new THREE.Vector3(-27,12*FH+7,3)},{t:`T${p*2+2}`,v:new THREE.Vector3(27,12*FH+7,3)},{t:`${pname[p]} substation and sets`,v:new THREE.Vector3(sx,9,-6),s:1}]}}
+ // Estimated from the render: centres about 130 m apart along the axis, staggered about 45 m, far block turned 180 degrees.
+ const pairs=[pair(0,-65,-22.5,0),pair(1,65,22.5,Math.PI)];
+ const tagEls=[];pairs.forEach(P=>P.tags.forEach(t=>{const e=document.createElement("div");e.className="tag3d"+(t.s?" s":"");e.textContent=t.t;host.appendChild(e);tagEls.push({e,obj:P.g,v:t.v})}));
+ const box=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0xffffff}));box.visible=false;root.add(box);
+ let az=-.95,el=.17,dist=330,need=true,W=0,H=0;
+ function resize(){W=host.clientWidth;H=host.clientHeight;R.setSize(W,H,false);cam.aspect=W/Math.max(H,1);cam.updateProjectionMatrix();need=true}
+ new ResizeObserver(resize).observe(host);resize();
+ function placeCam(){cam.position.set(dist*Math.sin(az)*Math.cos(el),dist*Math.sin(el)+6,dist*Math.cos(az)*Math.cos(el));cam.lookAt(0,20,0)}
+ const skyN=new THREE.Color(0x0d1722),skyD=new THREE.Color(0xa7c4d8),skyG=new THREE.Color(0x77868f),skyH=new THREE.Color(0xd99a6c);const tmp=new THREE.Color();
+ function paint(t,flo){const s=res.s,c=cfg,ii=Math.min(287,Math.floor(t));const sv=sunVec(DOY,t*DT,A0.lat),u=Math.max(sv.U,0),clr=c.shower&&t*DT>=14&&t*DT<=16.5?.35:c.sun;
+  sun.position.set(sv.E*300,Math.max(sv.U,.02)*300,-sv.N*300);sun.intensity=sv.U>0?(.2+.6*clr)*Math.min(1,u*2.5):0;hemi.intensity=.08+.37*Math.min(1,Math.max(0,(sv.U+.08)*3))*(.65+.35*clr);
+  tmp.copy(skyN).lerp(skyD,Math.min(1,Math.max(0,(sv.U+.05)*3.2)));if(sv.U>-.08&&sv.U<.16)tmp.lerp(skyH,.35*(1-Math.abs(sv.U-.04)/.12));tmp.lerp(skyG,(1-clr)*.75*Math.min(1,u*4));S.background=tmp.clone();
+  root.rotation.y=c.rot*Math.PI/180;
+  for(const p of [0,1])for(const w of [0,1])for(let l=0;l<12;l++){const m=floorsM[`${p}${w}${l}`],cc=floorColor(p,w,l,ii);for(const k of ["side","face"]){m[k].emissive.set(cc.c);m[k].emissiveIntensity=cc.i}}
+  pairs.forEach((P,p)=>{const x=res.R[p],gOn=x.gen[ii]>0;P.gens.forEach((g,k)=>{const on=gOn&&x.sets[ii]>k;const failed=x.setsOK[ii]<2&&k===1;g.emissive.set(failed?0xd03b3b:0xd95926);g.emissiveIntensity=failed?.9:on?.8:0});P.lineM.color.set(x.src[ii]==="dark"?0x444444:x.src[ii]==="gen"?0xd95926:0x3987e5)});
+  const q=sel,a=pairs[q.p].g;box.visible=true;const fm=picks.find(b=>b.userData.p===q.p&&b.userData.w===q.w&&b.userData.l===q.l);fm.parent.add(box);box.position.copy(fm.position);box.rotation.set(0,0,0);box.scale.set(32.8,FH+.2,24.6);need=true}
+ function draw(){if(!need)return;need=false;placeCam();R.render(S,cam);tagEls.forEach(t=>{const v=t.v.clone();t.obj.localToWorld(v);v.project(cam);const b=v.z<1;t.e.style.display=b?"":"none";t.e.style.left=clip((v.x+1)/2*W,t.e.offsetWidth/2+4,W-t.e.offsetWidth/2-4)+"px";t.e.style.top=((1-v.y)/2*H)+"px"})}
+ function spin(dt2){for(const f of fans){const on=res.s.hon[ti]*res.R[f.p].hvFrac[ti]>0;if(on)f.m.rotation.y+=dt2*8}need=true}
+ let drag=null,moved=0;const ray=new THREE.Raycaster();
+ host.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;drag={x:e.clientX,y:e.clientY};moved=0;if(e.pointerType==="mouse")host.setPointerCapture(e.pointerId);host.style.cursor="grabbing"});
+ host.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;moved+=Math.abs(dx)+Math.abs(dy);drag={x:e.clientX,y:e.clientY};az-=dx*.006;el=clip(el+dy*.005,.06,1.35);need=true});
+ const end=e=>{if(drag&&moved<6&&e.type==="pointerup"){const b=R.domElement.getBoundingClientRect(),v=new THREE.Vector2((e.clientX-b.left)/b.width*2-1,-(e.clientY-b.top)/b.height*2+1);ray.setFromCamera(v,cam);const h=ray.intersectObjects(picks,false)[0];if(h){sel={...h.object.userData};paintFloors();paint(ti,0)}}drag=null;host.style.cursor="grab"};
+ host.addEventListener("pointerup",end);host.addEventListener("pointercancel",end);
+ host.addEventListener("wheel",e=>{if(!e.ctrlKey)return;e.preventDefault();dist=clip(dist*(1+e.deltaY*.001),120,800);need=true},{passive:false});
+ $("zi").onclick=()=>{dist=clip(dist*.85,120,800);need=true};$("zo").onclick=()=>{dist=clip(dist*1.18,120,800);need=true};
+ host.addEventListener("keydown",e=>{const k=e.key;if(k==="ArrowLeft")az-=.08;else if(k==="ArrowRight")az+=.08;else if(k==="ArrowUp")el=clip(el+.05,.06,1.35);else if(k==="ArrowDown")el=clip(el-.05,.06,1.35);else return;e.preventDefault();need=true});
+ return{paint,draw,spin,mark(){paint(ti,0)}}})();
+
+/* ---------- loop ---------- */
+let fracT=0,lastTs=0;
+const reduced=matchMedia("(prefers-reduced-motion:reduce)").matches;
+function paintNow(){movePlayhead();const r=res,s=r.s;$("hudt").textContent=hhmm(ti);$("hudw").textContent=`${fmt(s.To[ti],1)} °C outdoor · ${({wd:"weekday",sat:"Saturday",sun:"Sunday"})[cfg.day]}`;paintStatus(ti);paintSLD(ti);paintFloors();if(scene3d)scene3d.paint(ti+fracT,0);paintLegend()}
+function paintLegend(){const L={supply:[["#3987e5","GPL"],["#d95926","Generators"],["#c98500","Battery assist"],["#3a4145","Vacant"]],cool:[["#184f95","Low cooling"],["#cde2fb","High cooling"],["#3a4145","Vacant"]],people:[["#184f95","Few people"],["#cde2fb","Full attendance"],["#3a4145","Vacant"]],light:[["#ffd9a0","Lights on"],["#3a4145","Vacant"]]}[mapMode];$("maplegend").innerHTML=L.map(x=>`<span><i style="background:${x[0]}"></i>${x[1]}</span>`).join("")}
+function recalc(){res=run(cfg);calcMaxCool();drawChart();paintNow()}
+function loop(ts){if(playing){if(lastTs){const dt=(ts-lastTs)/1000,adv=dt*6*speed;fracT+=adv;while(fracT>=1){fracT-=1;ti=(ti+1)%N;$("t").value=ti;paintStatus(ti);paintSLD(ti);paintFloors();movePlayhead();$("hudt").textContent=hhmm(ti);$("hudw").textContent=`${fmt(res.s.To[ti],1)} °C outdoor · ${({wd:"weekday",sat:"Saturday",sun:"Sunday"})[cfg.day]}`}if(scene3d){scene3d.paint(ti+fracT,0);if(!reduced)scene3d.spin(dt)}}lastTs=ts}if(scene3d)scene3d.draw();requestAnimationFrame(loop)}
+function drawCheck(){let o='<table><thead><tr><th>Case</th><th>kW twin</th><th>kW Python</th><th>kVA twin</th><th>kVA Python</th><th>kWh twin</th><th>kWh Python</th></tr></thead><tbody>';for(const r of REF){const x=future(r[2]);o+=`<tr><td>${r[0]} ${r[1]}</td><td>${fmt(x.kW)}</td><td>${fmt(r[3])}</td><td>${fmt(x.kVA)}</td><td>${fmt(r[4])}</td><td>${fmt(x.kWh)}</td><td>${fmt(r[5])}</td></tr>`}$("check").innerHTML=o+"</tbody></table>"}
+new ResizeObserver(()=>{if(res)drawChart()}).observe($("chart"));
+syncControls();recalc();drawCheck();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
